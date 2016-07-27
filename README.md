@@ -40,6 +40,7 @@ Basically:
 something I don't wish to add.
 
 An SBF File is structured as follows:
+```
 +--------------------+
 |   sbf_FileHeader   | file description e.g. number of datasets
 +--------------------+
@@ -48,5 +49,4 @@ An SBF File is structured as follows:
 +--------------------+ 
 |    binary_data     | binary data described in header section
 +--------------------+
-
-
+```
