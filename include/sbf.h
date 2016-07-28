@@ -6,13 +6,13 @@
  * SBF files are designed to be as braindead as possible.
  *
  */
-#include <stdlib.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#define sbf_print_error(...) fprintf(stderr, __VA_ARGS__)
+#define SBF_PERROR(...) fprintf(stderr, __VA_ARGS__)
 #define FAIL_IF_NULL(arg)                                                      \
     if (arg == NULL)                                                           \
     return SBF_RESULT_NULL_FAILURE
@@ -20,13 +20,35 @@
 #define SBF_MAX_DATASETS 32
 #define SBF_NAME_LENGTH 32
 
+#define SBF_WRITE_RAW(data, block_size, num_blocks, fp)                        \
+    do {                                                                       \
+        if (fwrite(data, block_size, num_blocks, fp) != num_blocks) {          \
+            SBF_PERROR("Failed to write to file, ferror=%d\nClosing file\n",   \
+                       ferror(fp));                                            \
+            sbf_close(sbf);                                                    \
+            return SBF_RESULT_WRITE_FAILURE;                                   \
+        }                                                                      \
+    } while (0)
+
+#define SBF_READ_RAW(data, block_size, num_blocks, fp)                         \
+    do {                                                                       \
+        if (fread(data, block_size, num_blocks, fp) != num_blocks) {           \
+            SBF_PERROR("Failed to read from file, ferror=%d\nClosing file\n",  \
+                       ferror(fp));                                            \
+            sbf_close(sbf);                                                    \
+            return SBF_RESULT_WRITE_FAILURE;                                   \
+        }                                                                      \
+    } while (0)
+
 // DATA TYPES
+typedef uint8_t sbf_byte;
 typedef uint64_t sbf_size;
 typedef int32_t sbf_integer;
 typedef int64_t sbf_long;
 typedef float sbf_float;
 typedef float sbf_double;
 typedef char sbf_character;
+
 // complex data types
 typedef struct {
     sbf_float re;
@@ -66,6 +88,7 @@ typedef enum {
 typedef struct {
     sbf_character token[4];
     sbf_character version_string[5];
+    sbf_byte flags;
     sbf_size n_datasets;
 } sbf_FileHeader;
 
@@ -85,14 +108,12 @@ typedef struct {
 } sbf_File;
 
 static const sbf_File sbf_new_file = {
-    .mode = SBF_FILE_READONLY,
-    .filename = NULL,
-    .fp = NULL,
-    .n_datasets = 0,
+    .mode = SBF_FILE_READONLY, .filename = NULL, .fp = NULL, .n_datasets = 0,
 };
 
 static const sbf_FileHeader sbf_new_file_header = {
     .token = {'S', 'B', 'F', '\0'},
+    .flags = 0,
     .version_string = {'0', '.', '0', '.', '1'},
     .n_datasets = 0};
 static const sbf_DataHeader sbf_new_data_header = {
@@ -109,20 +130,20 @@ static const sbf_DataHeader sbf_new_data_header = {
 sbf_result sbf_open(sbf_File *sbf) {
     FAIL_IF_NULL(sbf);
 
-    switch(sbf->mode){
-        case SBF_FILE_WRITEONLY:
-            sbf->fp = fopen(sbf->filename, "wb");
-            break;
-        case SBF_FILE_READONLY:
-            sbf->fp = fopen(sbf->filename, "rb");
-            break;
-        case SBF_FILE_READWRITE:
-            sbf->fp = fopen(sbf->filename, "w+b");
-            break;
+    switch (sbf->mode) {
+    case SBF_FILE_WRITEONLY:
+        sbf->fp = fopen(sbf->filename, "wb");
+        break;
+    case SBF_FILE_READONLY:
+        sbf->fp = fopen(sbf->filename, "rb");
+        break;
+    case SBF_FILE_READWRITE:
+        sbf->fp = fopen(sbf->filename, "w+b");
+        break;
     }
 
     if (sbf->fp == NULL) {
-        sbf_print_error("Failed to open file: %s\n", strerror(errno));
+        SBF_PERROR("Failed to open file: %s\n", strerror(errno));
         return SBF_RESULT_FILE_OPEN_FAILURE;
     }
 
@@ -139,7 +160,7 @@ sbf_result sbf_close(const sbf_File *file) {
     FAIL_IF_NULL(file);
     int ret = fclose(file->fp);
     if (ret != 0) {
-        sbf_print_error("Failed to close file: %s\n", strerror(errno));
+        SBF_PERROR("Failed to close file: %s\n", strerror(errno));
         return SBF_RESULT_FILE_CLOSE_FAILURE;
     }
     return SBF_RESULT_SUCCESS;
@@ -152,18 +173,16 @@ sbf_result sbf_close(const sbf_File *file) {
  *  Ensure the datatype is CORRECT
  *
  */
-sbf_result sbf_add_dataset(sbf_File *sbf, const char *name,
-                           sbf_data_type type, sbf_size shape[SBF_MAX_DIM],
-                           void *data) {
+sbf_result sbf_add_dataset(sbf_File *sbf, const char *name, sbf_data_type type,
+                           sbf_size shape[SBF_MAX_DIM], void *data) {
     FAIL_IF_NULL(sbf);
     FAIL_IF_NULL(name);
     FAIL_IF_NULL(data);
 
     // Fail if there are already too many datasets in the file
     if (sbf->n_datasets >= SBF_MAX_DATASETS) {
-        sbf_print_error(
-            "Number of datasets (%llu) exceeded SBF_MAX_DATASETS (%d)\n",
-            sbf->n_datasets, SBF_MAX_DATASETS);
+        SBF_PERROR("Number of datasets (%llu) exceeded SBF_MAX_DATASETS (%d)\n",
+                   sbf->n_datasets, SBF_MAX_DATASETS);
         return SBF_RESULT_MAX_DATASETS_EXCEEDED_FAILURE;
     }
 
@@ -226,110 +245,79 @@ sbf_size sbf_num_blocks(const sbf_DataHeader h) {
     return num_blocks;
 }
 
-/*
- * Write the contents of `sbf`' specified
- * in its dataheaders to the FILE * in `sbf->fp'.
- *
- * If it fails, it fails totally.
- */
-sbf_result sbf_write(const sbf_File *sbf) {
-    FAIL_IF_NULL(sbf); FAIL_IF_NULL(sbf->fp);
-    size_t write_size = 0, expected_write_size = 0;
+sbf_result sbf_write_headers(const sbf_File *sbf) {
+    FAIL_IF_NULL(sbf);
+    FAIL_IF_NULL(sbf->fp);
 
     sbf_FileHeader header =
         sbf_new_file_header; // this gives us token/version at the beginning
     header.n_datasets = sbf->n_datasets;
 
-    expected_write_size = 1;
-    write_size =
-        fwrite(&header, sizeof(header), expected_write_size, sbf->fp);
+    SBF_WRITE_RAW(&header, sizeof(header), 1, sbf->fp);
 
-    if (write_size != expected_write_size) {
-        sbf_print_error("Failed to write file header to file.\n");
-        fprintf(stderr, "Wrote: %lu, expected:%lu\n", write_size,
-                expected_write_size);
-        sbf_close(sbf);
-        return SBF_RESULT_WRITE_FAILURE;
-    }
+    SBF_WRITE_RAW(sbf->datasets, sizeof(sbf->datasets[0]), header.n_datasets,
+                  sbf->fp);
 
-    expected_write_size = sbf->n_datasets;
-    write_size = fwrite(sbf->datasets, sizeof(sbf->datasets[0]),
-                        expected_write_size, sbf->fp);
+    return SBF_RESULT_SUCCESS;
+}
 
-    if (write_size != expected_write_size) {
-        sbf_print_error("Failed to write dataset headers to file.\n");
-        fprintf(stderr, "Wrote: %lu, expected:%lu\n", write_size,
-                expected_write_size);
-        sbf_close(sbf);
-        return SBF_RESULT_WRITE_FAILURE;
-    }
+/*
+ * Write the contents of 'sbf' specified
+ * in its dataheaders to the FILE * in 'sbf->fp'.
+ *
+ * If it fails, it fails totally.
+ */
+sbf_result sbf_write(const sbf_File *sbf) {
+    FAIL_IF_NULL(sbf);
+    FAIL_IF_NULL(sbf->fp);
+
+    sbf_write_headers(sbf);
 
     for (sbf_size dset = 0; dset < sbf->n_datasets; dset++) {
         sbf_size datatype_size = sbf_datatype_size(sbf->datasets[dset]);
-        expected_write_size = sbf_num_blocks(sbf->datasets[dset]);
-        write_size = fwrite(&sbf->dataset_pointers[dset], datatype_size,
-                            expected_write_size, sbf->fp);
-        if (write_size != expected_write_size) {
-            sbf_print_error("Failed to write dataset %s to file.\n",
-                            sbf->datasets[dset].name);
-            sbf_close(sbf);
-            return SBF_RESULT_WRITE_FAILURE;
-        }
+        sbf_size expected_write_size = sbf_num_blocks(sbf->datasets[dset]);
+
+        SBF_WRITE_RAW(sbf->dataset_pointers[dset], datatype_size,
+                      expected_write_size, sbf->fp);
     }
     return SBF_RESULT_SUCCESS;
 }
 
 /*
- * Read the contents of an sbf file pointed to by 'sbf'
- * Will allocate arrays for each data entry
+ * Read the contents of a dataset in the file pointed to by 'sbf'
+ * Expects 'data' to be an array already allocated of the correct size.
  */
+sbf_result sbf_read_dataset(sbf_File *sbf, const sbf_DataHeader header,
+                            void *data) {
+    FAIL_IF_NULL(sbf);
+    FAIL_IF_NULL(sbf->fp);
+    FAIL_IF_NULL(data);
 
-sbf_result sbf_read(sbf_File *sbf) {
-    FAIL_IF_NULL(sbf); FAIL_IF_NULL(sbf->fp);
-    size_t read_size = 0, expected_read_size = 0;
+    sbf_size num_blocks = sbf_num_blocks(header);
+    sbf_size datatype_size = sbf_datatype_size(header);
+
+    SBF_READ_RAW(data, datatype_size, num_blocks, sbf->fp);
+
+    return SBF_RESULT_SUCCESS;
+}
+
+/*
+ * Read the contents of the headers in the file pointed to by 'sbf'
+ * Sets the relevant information into 'sbf'
+ */
+sbf_result sbf_read_headers(sbf_File *sbf) {
+    FAIL_IF_NULL(sbf);
+    FAIL_IF_NULL(sbf->fp);
+
     sbf_FileHeader header =
         sbf_new_file_header; // this gives us token/version at the beginning
-    expected_read_size = 1;
-    read_size = fread(&header, sizeof(header), 1, sbf->fp);
-    if (read_size != expected_read_size) {
-        sbf_print_error("Failed to read file header from file.\n");
-        fprintf(stderr, "Read: %lu, expected:%lu\n", read_size,
-                expected_read_size);
-        sbf_close(sbf);
-        return SBF_RESULT_READ_FAILURE;
-    }
-    printf("Header: {n_datasets=%llu}\n", header.n_datasets);
-    expected_read_size = header.n_datasets;
-    read_size = fread(&(sbf->datasets[0]), sizeof(sbf_DataHeader), header.n_datasets, sbf->fp);
 
-    if (read_size != expected_read_size) {
-        sbf_print_error("Failed to read expected number of data headers from file.\n");
-        fprintf(stderr, "Read: %lu, expected:%lu\n", read_size,
-                expected_read_size);
-        sbf_close(sbf);
-        return SBF_RESULT_READ_FAILURE;
-    }
+    SBF_READ_RAW(&header, sizeof(header), 1, sbf->fp);
 
-    printf("Read %llu dataset headers\n", header.n_datasets);
-    sbf_size datasets_read = read_size;
+    sbf->n_datasets = header.n_datasets;
 
-    for(sbf_size i = 0; i < datasets_read; i++) {
-        printf("Reading %s from file\n", sbf->datasets[i].name);
-        sbf_size num_blocks = sbf_num_blocks(sbf->datasets[i]);
-        sbf_size datatype_size = sbf_datatype_size(sbf->datasets[i]);
-        printf("Allocating %llu blocks of %llu size\n", num_blocks, datatype_size);
-        sbf->dataset_pointers[i] = calloc(num_blocks, datatype_size);
-        expected_read_size = num_blocks;
-        read_size = fread(sbf->dataset_pointers[i], datatype_size, num_blocks, sbf->fp); 
-            
-        if (read_size != expected_read_size) {
-            sbf_print_error("Failed to read file header to file.\n");
-            fprintf(stderr, "Read: %lu, expected:%lu\n", read_size,
-                    expected_read_size);
-            sbf_close(sbf);
-            return SBF_RESULT_READ_FAILURE;
-        }
-    }
+    SBF_READ_RAW(&(sbf->datasets[0]), sizeof(sbf_DataHeader), header.n_datasets,
+                 sbf->fp);
 
     return SBF_RESULT_SUCCESS;
 }

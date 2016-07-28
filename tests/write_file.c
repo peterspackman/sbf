@@ -6,20 +6,16 @@ int main(void) {
     file.filename = "test.sbf";
 
     sbf_open(&file);
-    sbf_integer ints[1000];
-    sbf_double dubs[1000];
-    for (int i = 0; i < 1000; i++) {
-        ints[i] = i;
-        dubs[i] = i*i;
-    }
-    sbf_size shape_ints[SBF_MAX_DIM] = {0};
-    sbf_size shape_doubles[SBF_MAX_DIM] = {0};
-    shape_ints[0] = 1000;
-    shape_doubles[0] = 25;
-    shape_doubles[1] = 40;
-    sbf_add_dataset(&file, "integer_dataset", SBF_INT, shape_ints, ints);
-    sbf_add_dataset(&file, "double_dataset", SBF_DOUBLE, shape_doubles, dubs);
 
+    sbf_integer ints[1000];
+    for (int i = 0; i < 1000; i++) {
+        ints[i] = i * i;
+    }
+
+    sbf_size shape_ints[SBF_MAX_DIM] = {0};
+
+    shape_ints[0] = 1000;
+    sbf_add_dataset(&file, "integer_dataset", SBF_INT, shape_ints, ints);
     sbf_write(&file);
     sbf_close(&file);
     return 0;
