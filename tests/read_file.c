@@ -4,9 +4,10 @@
 int main(void) {
     sbf_File file = sbf_new_file;
     file.mode = SBF_FILE_READONLY;
-    file.filename = "test.sbf";
+    file.filename = "read_test.sbf";
     sbf_open(&file);
     sbf_read_headers(&file);
+
     assert(file.n_datasets == 1);
 
     sbf_DataHeader integer_dataset = file.datasets[0];

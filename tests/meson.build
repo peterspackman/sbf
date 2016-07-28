@@ -1,4 +1,5 @@
 test_srcs = [
+    'basic.c',
     'read_file.c',
     'write_file.c'
 ]

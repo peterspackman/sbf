@@ -12,13 +12,46 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef SBF_DEBUG_OUTPUT
+#define SBF_DEBUG(...) fprintf(stderr, __VA_ARGS__);
+#else
+#define SBF_DEBUG
+#endif
+
+#define SBF_VERSION_MAJOR '0'
+#define SBF_VERSION_MINOR '1'
+#define SBF_VERSION_MINOR_MINOR '1'
+
+#define SBF_MAX_DIM 8
+#define SBF_MAX_DATASETS 16
+#define SBF_NAME_LENGTH 32
+#define SBF_ROW_MAJOR 0b01000000
+#define SBF_BIG_ENDIAN 0b1000000
+#define SBF_DIMENSION_BITS 0b00001111
+
+#define SBF_GET_DIMENSIONS(data_header) \
+    (data_header.flags & (SBF_DIMENSION_BITS))
+
+#define SBF_SET_DIMENSIONS(data_header, dims) \
+    (data_header.flags |=  ((dims & SBF_DIMENSION_BITS)))
+
+#define SBF_SET_BIG_ENDIAN_FLAG(data_header, flag) \
+    (data_header.flags |= (flag << 7))
+
+#define SBF_CHECK_BIG_ENDIAN_FLAG(data_header) \
+    (data_header.flags & SBF_BIG_ENDIAN)
+
+#define SBF_CHECK_ROW_MAJOR_FLAG(data_header) \
+    (data_header.flags & SBF_ROW_MAJOR)
+
+#define SBF_SET_ROW_MAJOR_FLAG(data_header) \
+    (data_header.flags |= SBF_ROW_MAJOR)
+
 #define SBF_PERROR(...) fprintf(stderr, __VA_ARGS__)
+
 #define FAIL_IF_NULL(arg)                                                      \
     if (arg == NULL)                                                           \
     return SBF_RESULT_NULL_FAILURE
-#define SBF_MAX_DIM 16
-#define SBF_MAX_DATASETS 32
-#define SBF_NAME_LENGTH 32
 
 #define SBF_WRITE_RAW(data, block_size, num_blocks, fp)                        \
     do {                                                                       \
@@ -54,10 +87,12 @@ typedef struct {
     sbf_float re;
     sbf_float im;
 } sbf_complex_float;
+
 typedef struct {
     sbf_double re;
     sbf_double im;
 } sbf_complex_double;
+
 // DATA TYPE FLAGS
 typedef enum {
     SBF_INT = 1,
@@ -86,14 +121,14 @@ typedef enum {
 } sbf_result;
 
 typedef struct {
-    sbf_character token[4];
-    sbf_character version_string[5];
-    sbf_byte flags;
-    sbf_size n_datasets;
+    sbf_character token[3];
+    sbf_character version_string[3];
+    sbf_byte n_datasets;
 } sbf_FileHeader;
 
 typedef struct {
     sbf_character name[SBF_NAME_LENGTH]; // what is the name of this dataset
+    sbf_byte flags;
     sbf_data_type data_type;             // how big is each block of data
     sbf_size shape[SBF_MAX_DIM];         // how many blocks of data do we have
 } sbf_DataHeader;
@@ -102,7 +137,7 @@ typedef struct {
     sbf_mode mode;
     const char *filename;
     FILE *fp;
-    sbf_size n_datasets;
+    sbf_byte n_datasets;
     sbf_DataHeader datasets[SBF_MAX_DATASETS];
     void *dataset_pointers[SBF_MAX_DATASETS];
 } sbf_File;
@@ -112,10 +147,11 @@ static const sbf_File sbf_new_file = {
 };
 
 static const sbf_FileHeader sbf_new_file_header = {
-    .token = {'S', 'B', 'F', '\0'},
-    .flags = 0,
-    .version_string = {'0', '.', '0', '.', '1'},
-    .n_datasets = 0};
+    .token = {'S', 'B', 'F'},
+    .version_string = {SBF_VERSION_MAJOR, SBF_VERSION_MINOR, SBF_VERSION_MINOR_MINOR},
+    .n_datasets = 0
+};
+
 static const sbf_DataHeader sbf_new_data_header = {
     .name = {0}, .data_type = 0, .shape = {0},
 };
@@ -181,7 +217,7 @@ sbf_result sbf_add_dataset(sbf_File *sbf, const char *name, sbf_data_type type,
 
     // Fail if there are already too many datasets in the file
     if (sbf->n_datasets >= SBF_MAX_DATASETS) {
-        SBF_PERROR("Number of datasets (%llu) exceeded SBF_MAX_DATASETS (%d)\n",
+        SBF_PERROR("Number of datasets (%d) exceeded SBF_MAX_DATASETS (%d)\n",
                    sbf->n_datasets, SBF_MAX_DATASETS);
         return SBF_RESULT_MAX_DATASETS_EXCEEDED_FAILURE;
     }
@@ -311,7 +347,6 @@ sbf_result sbf_read_headers(sbf_File *sbf) {
 
     sbf_FileHeader header =
         sbf_new_file_header; // this gives us token/version at the beginning
-
     SBF_READ_RAW(&header, sizeof(header), 1, sbf->fp);
 
     sbf->n_datasets = header.n_datasets;
