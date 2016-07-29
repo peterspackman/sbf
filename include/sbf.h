@@ -29,23 +29,22 @@
 #define SBF_BIG_ENDIAN 0b1000000
 #define SBF_DIMENSION_BITS 0b00001111
 
-#define SBF_GET_DIMENSIONS(data_header) \
+#define SBF_GET_DIMENSIONS(data_header)                                        \
     (data_header.flags & (SBF_DIMENSION_BITS))
 
-#define SBF_SET_DIMENSIONS(data_header, dims) \
-    (data_header.flags |=  ((dims & SBF_DIMENSION_BITS)))
+#define SBF_SET_DIMENSIONS(data_header, dims)                                  \
+    (data_header.flags |= ((dims & SBF_DIMENSION_BITS)))
 
-#define SBF_SET_BIG_ENDIAN_FLAG(data_header, flag) \
+#define SBF_SET_BIG_ENDIAN_FLAG(data_header, flag)                             \
     (data_header.flags |= (flag << 7))
 
-#define SBF_CHECK_BIG_ENDIAN_FLAG(data_header) \
+#define SBF_CHECK_BIG_ENDIAN_FLAG(data_header)                                 \
     (data_header.flags & SBF_BIG_ENDIAN)
 
-#define SBF_CHECK_ROW_MAJOR_FLAG(data_header) \
+#define SBF_CHECK_ROW_MAJOR_FLAG(data_header)                                  \
     (data_header.flags & SBF_ROW_MAJOR)
 
-#define SBF_SET_ROW_MAJOR_FLAG(data_header) \
-    (data_header.flags |= SBF_ROW_MAJOR)
+#define SBF_SET_ROW_MAJOR_FLAG(data_header) (data_header.flags |= SBF_ROW_MAJOR)
 
 #define SBF_PERROR(...) fprintf(stderr, __VA_ARGS__)
 
@@ -129,8 +128,8 @@ typedef struct {
 typedef struct {
     sbf_character name[SBF_NAME_LENGTH]; // what is the name of this dataset
     sbf_byte flags;
-    sbf_data_type data_type;             // how big is each block of data
-    sbf_size shape[SBF_MAX_DIM];         // how many blocks of data do we have
+    sbf_data_type data_type;     // how big is each block of data
+    sbf_size shape[SBF_MAX_DIM]; // how many blocks of data do we have
 } sbf_DataHeader;
 
 typedef struct {
@@ -148,9 +147,9 @@ static const sbf_File sbf_new_file = {
 
 static const sbf_FileHeader sbf_new_file_header = {
     .token = {'S', 'B', 'F'},
-    .version_string = {SBF_VERSION_MAJOR, SBF_VERSION_MINOR, SBF_VERSION_MINOR_MINOR},
-    .n_datasets = 0
-};
+    .version_string = {SBF_VERSION_MAJOR, SBF_VERSION_MINOR,
+                       SBF_VERSION_MINOR_MINOR},
+    .n_datasets = 0};
 
 static const sbf_DataHeader sbf_new_data_header = {
     .name = {0}, .data_type = 0, .shape = {0},

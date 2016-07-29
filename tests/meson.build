@@ -1,7 +1,6 @@
 test_srcs = [
     'basic.c',
-    'read_file.c',
-    'write_file.c'
+    'write_read_file.c'
 ]
 
 foreach t : test_srcs
