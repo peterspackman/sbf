@@ -1,5 +1,5 @@
-project('sbf', 'c', 
-        version: '0.0.1', default_options: ['c_std=c11'])
+project('sbf', ['c', 'cpp'], 
+        version: '0.0.1', default_options: ['c_std=c11', 'cpp_std=c++11'])
 
 conf_data = configuration_data()
 conf_data.set('SBF_VERSION_MAJOR', '0')

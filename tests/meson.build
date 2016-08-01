@@ -1,11 +1,12 @@
 test_srcs = [
     'basic.c',
-    'write_read_file.c'
+    'write_read_file.c',
+    'basic.cpp',
+    'write_read_file.cpp'
 ]
 
 foreach t : test_srcs
-    name = t.split('.')[0]
-    test_exe = executable(name, sources: t,
+    test_exe = executable(t, sources: t,
                           include_directories: inc)
-    test(name, test_exe)
+    test(t, test_exe)
 endforeach
