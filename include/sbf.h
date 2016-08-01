@@ -78,7 +78,7 @@ typedef uint64_t sbf_size;
 typedef int32_t sbf_integer;
 typedef int64_t sbf_long;
 typedef float sbf_float;
-typedef float sbf_double;
+typedef double sbf_double;
 typedef char sbf_character;
 
 // complex data types
