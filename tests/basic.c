@@ -16,6 +16,7 @@ void print_bits(sbf_byte byte) {
 
 static char *test_header() {
     sbf_DataHeader header = sbf_new_data_header;
+    assert("header size", sizeof(header) == 128);
     assert("initial header dimensions nonzero",
            SBF_GET_DIMENSIONS(header) == 0);
 

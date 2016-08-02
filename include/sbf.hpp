@@ -15,7 +15,7 @@
 
 #define SBF_MAX_DIM 8
 #define SBF_MAX_DATASETS 16
-#define SBF_NAME_LENGTH 32
+#define SBF_NAME_LENGTH 62
 #define SBF_ROW_MAJOR 0b01000000
 #define SBF_BIG_ENDIAN 0b1000000
 #define SBF_DIMENSION_BITS 0b00001111
@@ -40,8 +40,9 @@ namespace sbf {
     typedef std::complex<double> sbf_complex_double;
 
     // DATA TYPE FLAGS
-    enum DataType {
-        SBF_INT = 1,
+    enum DataType : sbf_byte {
+        SBF_BYTE = 0,
+        SBF_INT, 
         SBF_LONG,
         SBF_FLOAT,
         SBF_DOUBLE,
@@ -90,13 +91,45 @@ namespace sbf {
 
 
     struct DataHeader {
-        std::array<sbf_character, SBF_NAME_LENGTH> name; // what is the name of this dataset
-        sbf_byte flags;
-        DataType data_type;     // how big is each block of data
-        std::array<sbf_size, SBF_MAX_DIM> shape; // how many blocks of data do we have
+        // 62 'bytes'
+        std::array<sbf_character, SBF_NAME_LENGTH> name = {{0}}; // what is the name of this dataset
+        // 1 byte
+        sbf_byte flags = 0;
+        // 1 byte
+        DataType data_type = SBF_BYTE;     // how big is each block of data
+        // 8 * 8 bytes
+        std::array<sbf_size, SBF_MAX_DIM> shape = {{0}}; // how many blocks of data do we have
+
+        std::size_t datatype_size() {
+            sbf_size bytes = 0;
+            switch(data_type) {
+                case SBF_BYTE:
+                    bytes = sizeof(sbf_byte);
+                    break;
+                case SBF_DOUBLE:
+                    bytes = sizeof(sbf_double);
+                    break;
+                case SBF_INT:
+                    bytes = sizeof(sbf_integer);
+                    break;
+                case SBF_LONG:
+                    bytes = sizeof(sbf_long);
+                    break;
+                case SBF_FLOAT:
+                    bytes = sizeof(sbf_float);
+                    break;
+                case SBF_CFLOAT:
+                    bytes = sizeof(sbf_complex_float);
+                    break;
+                case SBF_CDOUBLE:
+                    bytes = sizeof(sbf_complex_double);
+                    break;
+            }
+            return bytes;
+        }
 
         std::size_t size() {
-            std::size_t s = 4 * shape[0];
+            std::size_t s = datatype_size() * shape[0];
             for (auto i = 1; i < SBF_MAX_DIM; i++) {
                 if (shape[i] == 0)
                     break;
