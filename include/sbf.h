@@ -26,11 +26,11 @@
 #define SBF_MAX_DATASETS 16
 #define SBF_NAME_LENGTH 62
 // Flag bits
-#define SBF_BIG_ENDIAN      0b10000000
-#define SBF_ROW_MAJOR       0b01000000
+#define SBF_BIG_ENDIAN 0b10000000
+#define SBF_COLUMN_MAJOR 0b01000000
 #define SBF_CUSTOM_DATATYPE 0b00100000
-#define SBF_UNUSED_BIT      0b00010000
-#define SBF_DIMENSION_BITS  0b00001111
+#define SBF_UNUSED_BIT 0b00010000
+#define SBF_DIMENSION_BITS 0b00001111
 
 #define SBF_GET_DIMENSIONS(data_header)                                        \
     (data_header.flags & (SBF_DIMENSION_BITS))
@@ -97,13 +97,13 @@ typedef struct {
 
 // DATA TYPE FLAGS
 typedef sbf_byte sbf_data_type;
-#define   SBF_BYTE 0
-#define   SBF_INT 1
-#define   SBF_LONG 2
-#define   SBF_FLOAT 3
-#define   SBF_DOUBLE 4
-#define   SBF_CFLOAT 5
-#define   SBF_CDOUBLE 6
+#define SBF_BYTE 0
+#define SBF_INT 1
+#define SBF_LONG 2
+#define SBF_FLOAT 3
+#define SBF_DOUBLE 4
+#define SBF_CFLOAT 5
+#define SBF_CDOUBLE 6
 
 typedef enum {
     SBF_FILE_READONLY,
