@@ -1,6 +1,7 @@
 #pragma once
 #include "sbf/types.hpp"
 #include <array>
+#include <vector>
 
 namespace sbf {
 /*
@@ -37,7 +38,7 @@ std::ostream &operator<<(std::ostream &os, const FileHeader &f) {
     return os;
 }
 
-/* 
+/*
  * Deserialize from a datastream in to this FileHeader
  */
 std::istream &operator>>(std::istream &is, FileHeader &f) {
@@ -57,58 +58,69 @@ std::istream &operator>>(std::istream &is, FileHeader &f) {
  * - Flags (e.g. row major, little endian)
  * - dimensions of the dataset
  */
-struct DataHeader {
-    DataHeader() {
+
+class Dataset {
+  public:
+    Dataset() {
+    }
+    Dataset(const std::string &name_string) {
+        _name = as_sbf_string(name_string);
     }
 
-    DataHeader(const std::string &name_string) {
-        std::copy_n(begin(name_string),
-                    std::min(name.size(), name_string.size()), begin(name));
+    Dataset(const std::string &name_string, const sbf_dimensions &shape,
+            const DataType type, const sbf_byte flags = flags::default_flags) {
+        _name = as_sbf_string(name_string);
+        std::copy(begin(shape), end(shape), begin(_shape));
+        _type = type;
     }
 
-    // 62 'bytes'
-    std::array<sbf_character, limits::name_length> name = {
-        {0}}; // what is the name of this dataset
-    // 1 byte
-    sbf_byte flags = flags::default_flags;
-    // 1 byte
-    DataType data_type = SBF_BYTE; // how big is each block of data
-    // 8 * 8 bytes
-    sbf_dimensions shape = {{0}}; // how many blocks of data do we have
+    const std::string name() const {
+        return as_string(_name);
+    }
 
-    std::string name_string() {
-        std::string n;
-        std::copy_n(begin(name), name.size(), std::back_inserter(n));
-        return n;
+    sbf_string raw_name() const {
+        return _name;
     }
 
     /* Is the 'flags' big endian bit set?*/
-    inline const bool is_big_endian() {
-        return flags & flags::big_endian;
+    inline const bool is_big_endian() const {
+        return _flags & flags::big_endian;
     }
 
     /* Is the 'flags' big endian bit not set? (equivalent to !is_big_endian() */
-    inline const bool is_little_endian() {
+    inline const bool is_little_endian() const {
         return !is_big_endian();
     }
 
     /* Extract number of dimensions from 'flags'?*/
-    inline const sbf_byte dimensions() {
-        return (flags & flags::dimension_bits);
+    inline const sbf_byte get_dimensions() const {
+        return (_flags & flags::dimension_bits);
     }
 
     inline void set_dimensions(sbf_byte dimensions) {
-        flags |= (dimensions & flags::dimension_bits);
+        _flags |= (dimensions & flags::dimension_bits);
     }
-    
+
+    const sbf_byte get_flags() const {
+        return _flags;
+    }
+
+    const DataType get_type() const {
+        return _type;
+    }
+
+    const sbf_dimensions get_shape() const {
+        return _shape;
+    }
+
     /*
      * Size of the datatype, in bytes
      *
      * TODO fix implementation to not be so dirty
      */
-    const std::size_t datatype_size() {
+    const std::size_t datatype_size() const {
         sbf_size bytes = 0;
-        switch (data_type) {
+        switch (_type) {
         case SBF_BYTE:
             bytes = sizeof(sbf_byte);
             break;
@@ -135,41 +147,53 @@ struct DataHeader {
     }
 
     /* Total number of bytes occupied by the binary blob of this dataset,
-     * i.e. num_blocks * block_size 
+     * i.e. num_blocks * block_size
      */
-    const std::size_t size() {
+    const std::size_t size() const {
         std::size_t product = datatype_size();
-        for (const auto dim: shape) {
+        for (const auto dim : _shape) {
             if (dim == 0)
                 break;
             product *= dim;
         }
         return product;
     }
+
+    friend std::ostream &operator<<(std::ostream &os, const Dataset &dset);
+    friend std::istream &operator>>(std::istream &is, Dataset &dset);
+
+  private:
+    sbf_string _name;
+    sbf_byte _flags = flags::default_flags;
+    DataType _type = SBF_BYTE;     // how big is each block of data
+    sbf_dimensions _shape = {{0}}; // how many blocks of data do we have
 };
 
 /*
- * Serialize this DataHeader into a datastream
+ * Serialize this Dataset into a datastream
  */
-std::ostream &operator<<(std::ostream &os, const DataHeader &f) {
+std::ostream &operator<<(std::ostream &os, const Dataset &f) {
     // Fields are done separately in order to avoid potential struct padding
     // issues
-    os.write(reinterpret_cast<const char *>(&(f.name)), sizeof(f.name));
-    os.write(reinterpret_cast<const char *>(&(f.flags)), sizeof(f.flags));
-    os.write(reinterpret_cast<const char *>(&(f.data_type)),
-             sizeof(f.data_type));
-    os.write(reinterpret_cast<const char *>(&(f.shape)), sizeof(f.shape));
+    auto raw_name = f.raw_name();
+    auto flags = f.get_flags();
+    auto type = f.get_type();
+    auto shape = f.get_shape();
+    os.write(reinterpret_cast<const char *>(&(raw_name)), sizeof(raw_name));
+    os.write(reinterpret_cast<const char *>(&(flags)), sizeof(flags));
+    os.write(reinterpret_cast<const char *>(&(type)), sizeof(type));
+    os.write(reinterpret_cast<const char *>(&(shape)), sizeof(shape));
     return os;
 }
 
 /*
- * Deserialize from a data stream into this DataHeader
+ * Deserialize from a data stream into this Dataset
  */
-std::istream &operator>>(std::istream &is, DataHeader &f) {
-    is.read(reinterpret_cast<char *>(&(f.name)), sizeof(f.name));
-    is.read(reinterpret_cast<char *>(&(f.flags)), sizeof(f.flags));
-    is.read(reinterpret_cast<char *>(&(f.data_type)), sizeof(f.data_type));
-    is.read(reinterpret_cast<char *>(&(f.shape)), sizeof(f.shape));
+std::istream &operator>>(std::istream &is, Dataset &dset) {
+    is.read(reinterpret_cast<char *>(&(dset._name)), sizeof(dset._name));
+    is.read(reinterpret_cast<char *>(&(dset._flags)), sizeof(dset._flags));
+    is.read(reinterpret_cast<char *>(&(dset._type)), sizeof(dset._type));
+    is.read(reinterpret_cast<char *>(&(dset._shape)), sizeof(dset._shape));
     return is;
 }
 }

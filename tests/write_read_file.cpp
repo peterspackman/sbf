@@ -15,7 +15,7 @@ TEST_CASE("Open and close files", "[io, headers]") {
     }
 }
 
-TEST_CASE("Write to file", "[io, headers]"){
+TEST_CASE("Write to file", "[io, headers]") {
     sbf::File file("/tmp/test_cpp.sbf", sbf::writing);
     sbf::sbf_integer ints[1000];
     for (int i = 0; i < 1000; i++) {
@@ -24,13 +24,14 @@ TEST_CASE("Write to file", "[io, headers]"){
     REQUIRE(file.open() == sbf::success);
     sbf::sbf_dimensions shape;
     shape[0] = 1000;
-    REQUIRE(file.add_dataset("integer_dataset", shape, sbf::SBF_INT, ints) == sbf::success);
+    sbf::Dataset dset("integer_dataset", shape, sbf::SBF_INT);
+    REQUIRE(file.add_dataset(dset, ints) == sbf::success);
     REQUIRE(file.n_datasets() == 1);
     REQUIRE(file.write_headers() == sbf::success);
     REQUIRE(file.close() == sbf::success);
 }
 
-TEST_CASE("Read from file", "[io, headers]"){
+TEST_CASE("Read from file", "[io, headers]") {
     sbf::File file("/tmp/test_cpp.sbf", sbf::reading);
     sbf::sbf_integer ints[1000];
     for (int i = 0; i < 1000; i++) {
@@ -39,6 +40,6 @@ TEST_CASE("Read from file", "[io, headers]"){
     REQUIRE(file.open() == sbf::success);
     REQUIRE(file.read_headers() == sbf::success);
     REQUIRE(file.n_datasets() == 1);
-    //res = file.add_dataset<sbf_integer, 1000>("integer_dataset", ints);
+    // res = file.add_dataset<sbf_integer, 1000>("integer_dataset", ints);
     REQUIRE(file.close() == sbf::success);
 }

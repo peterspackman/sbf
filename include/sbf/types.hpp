@@ -1,6 +1,8 @@
 #pragma once
+#include <array>
 #include <complex>
 #include <cstdint>
+#include <string>
 
 namespace sbf {
 typedef uint8_t sbf_byte;
@@ -34,6 +36,20 @@ constexpr sbf_byte default_flags(0b00000000);
 }
 
 typedef std::array<sbf_size, limits::max_dataset_dimensions> sbf_dimensions;
+typedef std::array<sbf_character, limits::name_length> sbf_string;
+
+std::string as_string(sbf_string sbf_str) {
+    std::string str;
+    std::copy_n(begin(sbf_str), sbf_str.size(), std::back_inserter(str));
+    return str;
+}
+
+sbf_string as_sbf_string(std::string str) {
+    sbf_string sbf_str;
+    std::copy_n(begin(str), std::min(sbf_str.size(), str.size()),
+                begin(sbf_str));
+    return sbf_str;
+}
 
 // DATA TYPE FLAGS
 enum DataType : sbf_byte {

@@ -1,17 +1,9 @@
 #define CATCH_CONFIG_MAIN
-#include <iostream>
-#include "sbf.hpp"
 #include "catch.hpp"
+#include "sbf.hpp"
+#include <iostream>
 
-
-TEST_CASE("Header compatibility", "[headers]") {
-    sbf::DataHeader cpp_header;
-    std::cout << "Size of DataHeader: " << sizeof(cpp_header) << std::endl;
-    REQUIRE(sizeof(cpp_header) == 128);
-
-}
-
-TEST_CASE("DataHeader basics", "[headers]") {
-    sbf::DataHeader header;
-    REQUIRE(header.flags == 0);
+TEST_CASE("Dataset basics", "[dsets]") {
+    sbf::Dataset dset("integer_dataset");
+    REQUIRE(dset.get_flags() == 0);
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include "sbf/headers.hpp"
+#include "sbf/dataset.hpp"
 #include "sbf/types.hpp"
 #include <algorithm>
 #include <deque>
@@ -17,6 +17,11 @@
  */
 namespace sbf {
 
+/*
+ * SBF container class
+ *
+ * Holds information about file, handles writing/reading datasets
+ */
 class File {
   public:
     File(std::string name, AccessMode mode = reading)
@@ -53,9 +58,9 @@ class File {
         if (file_stream.fail()) {
             res = write_failure;
         } else {
-            for (const auto dataset : datasets) {
-                DataHeader header = dataset.first;
-                file_stream << header;
+            for (const auto dataset_pair : datasets) {
+                Dataset dset = dataset_pair.first;
+                file_stream << dset;
                 if (file_stream.fail()) {
                     res = write_failure;
                     break;
@@ -74,39 +79,26 @@ class File {
         }
 
         for (auto i = 0; i < file_header.n_datasets; i++) {
-            DataHeader header;
-            file_stream >> header;
-            std::cout << "DataHeader(" << header.name_string() << ")"
-                      << std::endl;
+            Dataset dset;
+            file_stream >> dset;
             if (file_stream.fail()) {
                 return read_failure;
             }
-            datasets.push_back(std::make_pair(header, nullptr));
+            datasets.push_back(std::make_pair(dset, nullptr));
         }
         return success;
     }
 
-    ResultType add_dataset(std::string name, sbf_dimensions shape,
-                           DataType data_type, void *data,
-                           sbf_byte flags = flags::default_flags) {
-        DataHeader header(name);
-        header.data_type = data_type;
-
-        sbf_byte dimensions;
-        for(dimensions = 0; dimensions < shape.size(); dimensions++) {
-            if(shape[dimensions] == 0) break;
-        }
-        header.set_dimensions(dimensions);
-        std::copy_n(begin(shape), dimensions, begin(header.shape));
-        datasets.push_back(std::make_pair(header, data));
+    const ResultType add_dataset(const Dataset& dset, void *data) {
+        datasets.push_back(std::make_pair(dset, data));
         return success;
     }
 
-    bool is_open() {
+    bool is_open() const {
         return file_stream.is_open();
     }
 
-    std::size_t n_datasets() {
+    const std::size_t n_datasets() const{
         return datasets.size();
     }
 
@@ -114,6 +106,6 @@ class File {
     std::fstream file_stream;
     AccessMode accessmode;
     std::string filename;
-    std::deque<std::pair<DataHeader, void *>> datasets;
+    std::deque<std::pair<Dataset, void *>> datasets;
 };
 }
