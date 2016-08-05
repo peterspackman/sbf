@@ -24,8 +24,8 @@ TEST_CASE("Write to file", "[io, headers]") {
     REQUIRE(file.open() == sbf::success);
     sbf::sbf_dimensions shape;
     shape[0] = 1000;
-    sbf::Dataset dset("integer_dataset", shape, sbf::SBF_INT);
-    REQUIRE(file.add_dataset(dset, ints) == sbf::success);
+    sbf::Dataset dset("integer_dataset", shape, sbf::SBF_INT, reinterpret_cast<void *>(ints));
+    REQUIRE(file.add_dataset(dset) == sbf::success);
     REQUIRE(file.n_datasets() == 1);
     REQUIRE(file.write_headers() == sbf::success);
     REQUIRE(file.close() == sbf::success);

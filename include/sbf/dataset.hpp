@@ -13,14 +13,11 @@ namespace sbf {
  */
 struct FileHeader {
     FileHeader() {
-        token = {{'S', 'B', 'F'}};
-        version_string = {
-            {sbf_version_major, sbf_version_minor, sbf_version_minor_minor}};
+        token_version_string = {{'S', 'B', 'F', sbf_version_major, sbf_version_minor, sbf_version_minor_minor}};
         n_datasets = 0;
     }
 
-    std::array<sbf_character, 3> token;
-    std::array<sbf_character, 3> version_string;
+    std::array<sbf_character, 6> token_version_string;
     sbf_byte n_datasets;
 };
 
@@ -30,9 +27,8 @@ struct FileHeader {
 std::ostream &operator<<(std::ostream &os, const FileHeader &f) {
     // Fields are done separately in order to avoid potential struct padding
     // issues
-    os.write(reinterpret_cast<const char *>(&(f.token)), sizeof(f.token));
-    os.write(reinterpret_cast<const char *>(&(f.version_string)),
-             sizeof(f.version_string));
+    os.write(reinterpret_cast<const char *>(&(f.token_version_string)),
+             sizeof(f.token_version_string));
     os.write(reinterpret_cast<const char *>(&(f.n_datasets)),
              sizeof(f.n_datasets));
     return os;
@@ -42,9 +38,8 @@ std::ostream &operator<<(std::ostream &os, const FileHeader &f) {
  * Deserialize from a datastream in to this FileHeader
  */
 std::istream &operator>>(std::istream &is, FileHeader &f) {
-    is.read(reinterpret_cast<char *>(&(f.token)), sizeof(f.token));
-    is.read(reinterpret_cast<char *>(&(f.version_string)),
-            sizeof(f.version_string));
+    is.read(reinterpret_cast<char *>(&(f.token_version_string)),
+            sizeof(f.token_version_string));
     is.read(reinterpret_cast<char *>(&(f.n_datasets)), sizeof(f.n_datasets));
     return is;
 }
@@ -58,7 +53,6 @@ std::istream &operator>>(std::istream &is, FileHeader &f) {
  * - Flags (e.g. row major, little endian)
  * - dimensions of the dataset
  */
-
 class Dataset {
   public:
     Dataset() {
@@ -68,7 +62,9 @@ class Dataset {
     }
 
     Dataset(const std::string &name_string, const sbf_dimensions &shape,
-            const DataType type, const sbf_byte flags = flags::default_flags) {
+            const DataType type, void * data,
+            const sbf_byte flags = flags::default_flags) {
+        _data = data;
         _name = as_sbf_string(name_string);
         std::copy(begin(shape), end(shape), begin(_shape));
         _type = type;
@@ -163,6 +159,7 @@ class Dataset {
     friend std::istream &operator>>(std::istream &is, Dataset &dset);
 
   private:
+    void * _data = nullptr;
     sbf_string _name;
     sbf_byte _flags = flags::default_flags;
     DataType _type = SBF_BYTE;     // how big is each block of data

@@ -58,9 +58,8 @@ class File {
         if (file_stream.fail()) {
             res = write_failure;
         } else {
-            for (const auto dataset_pair : datasets) {
-                Dataset dset = dataset_pair.first;
-                file_stream << dset;
+            for (const auto dataset: datasets) {
+                file_stream << dataset;
                 if (file_stream.fail()) {
                     res = write_failure;
                     break;
@@ -84,13 +83,13 @@ class File {
             if (file_stream.fail()) {
                 return read_failure;
             }
-            datasets.push_back(std::make_pair(dset, nullptr));
+            datasets.push_back(dset);
         }
         return success;
     }
 
-    const ResultType add_dataset(const Dataset& dset, void *data) {
-        datasets.push_back(std::make_pair(dset, data));
+    const ResultType add_dataset(const Dataset& dset) {
+        datasets.push_back(dset);
         return success;
     }
 
@@ -106,6 +105,6 @@ class File {
     std::fstream file_stream;
     AccessMode accessmode;
     std::string filename;
-    std::deque<std::pair<Dataset, void *>> datasets;
+    std::deque<Dataset> datasets;
 };
 }
