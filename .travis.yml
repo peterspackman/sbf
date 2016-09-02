@@ -1,6 +1,11 @@
 language: python
 
-cache: pip
+cache: pip apt
+
+addons:
+    apt:
+        packages:
+            - ninja-build
 
 python:
     - "3.5"
