@@ -23,7 +23,7 @@ before_script:
 
 script:
     - mkdir build && cd build
-    - meson ..
+    - meson.py ..
     - ninja test
 
 notifications:
