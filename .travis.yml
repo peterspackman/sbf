@@ -23,6 +23,7 @@ before_script:
     - wget https://raw.githubusercontent.com/philsquared/Catch/master/single_include/catch.hpp -O include/catch.hpp
 
 script:
+    - ninja --version
     - mkdir build && cd build
     - meson.py ..
     - ninja test
