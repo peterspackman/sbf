@@ -2,6 +2,8 @@ language: cpp
 
 cache: pip
 
+python: 3.5
+
 os: linux
 
 compiler:
