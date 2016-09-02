@@ -3,12 +3,12 @@ language: cpp
 cache:
     apt: true
 
-os:
-    - linux
+os: linux
 
 addons:
     apt:
-        - meson
+        packages:
+            - meson
 
 compiler:
     - clang
