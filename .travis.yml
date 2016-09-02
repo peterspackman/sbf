@@ -5,7 +5,7 @@ cache: pip apt
 addons:
     apt:
         sources:
-            - sourceline: 'ppa:saiarcot895/chromium-beta'
+            - 'kalakris-cmake'
         packages:
             - ninja-build
 
