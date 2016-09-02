@@ -1,11 +1,10 @@
 language: python
+dist: trusty
 
 cache: pip apt
 
 addons:
     apt:
-        sources:
-            - 'kalakris-cmake'
         packages:
             - ninja-build
 
