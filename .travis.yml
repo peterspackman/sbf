@@ -1,0 +1,27 @@
+language: cpp
+
+cache:
+    apt: true
+
+os:
+    - linux
+
+addons:
+    apt:
+        - meson
+
+compiler:
+    - clang
+
+before_script:
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gcc; fi
+    - wget https://raw.githubusercontent.com/philsquared/Catch/master/single_include/catch.hpp -O include/catch.hpp
+
+script:
+    - mkdir build && cd build
+    - meson ..
+    - ninja test
+
+notifications:
+  email: false

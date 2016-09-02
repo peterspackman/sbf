@@ -1,3 +1,4 @@
 bin/
 *.sbf
 build/
+include/catch.hpp
