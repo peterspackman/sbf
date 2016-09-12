@@ -1,20 +1,28 @@
-language: python
+language: cpp
 dist: trusty
 
-cache: pip apt
+cache:
+    apt: true
+
+
+os:
+    - linux
+    - osx
 
 addons:
     apt:
+        sources:
+            - george-edison55-precise-backports
+            - ubuntu-toolchain-r-test
         packages:
-            - ninja-build
-
-python:
-    - "3.5"
-
-os: linux
+            - cmake
+            - cmake-data
+            - gcc-6
+            - gfortran-6
 
 compiler:
     - clang
+    - gcc
 
 before_script:
     - pip install meson
@@ -23,10 +31,10 @@ before_script:
     - wget https://raw.githubusercontent.com/philsquared/Catch/master/single_include/catch.hpp -O include/catch.hpp
 
 script:
-    - ninja --version
     - mkdir build && cd build
-    - meson.py ..
-    - ninja test
+    - cmake ..
+    - make
+    - ctest
 
 notifications:
   email: false
