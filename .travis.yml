@@ -30,6 +30,8 @@ before_script:
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gcc; fi
     - wget https://raw.githubusercontent.com/philsquared/Catch/master/single_include/catch.hpp -O include/catch.hpp
     - export FC=gfortran-6
+    - export CC=gcc-6
+    - export CXX=g++-6
 
 script:
     - mkdir build && cd build
