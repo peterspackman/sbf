@@ -8,7 +8,7 @@ program write_read_file
     type(sbf_File) :: data_file
     integer :: i
     character(sbf_byte), dimension(:), allocatable :: bytes
-    integer(sbf_integer), dimension(1000) :: data = [(i*i, i=1,1000)]
+    integer(sbf_integer), dimension(1000) :: data = [(i*i, i=0,999)]
     data_file%filename = filename
     dset = sbf_Dataset("integer_dataset", data)
     call data_file%add_dataset(dset)
