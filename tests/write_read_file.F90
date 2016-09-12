@@ -1,6 +1,5 @@
 program write_read_file
     use sbf
-    use basic_tests
     implicit none
     character(len=256) :: filename = "/tmp/sbf_test_fortran.sbf"
     type(sbf_Dataset) :: dset

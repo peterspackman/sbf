@@ -3,7 +3,9 @@
 #define SBF_VERSION_MINOR_MINOR '1'
 
 #define SBF_MAX_DIM 8
+#ifndef SBF_MAX_DATASETS
 #define SBF_MAX_DATASETS 16
+#endif
 #define SBF_NAME_LENGTH 62
 ! Flag bits
 #define SBF_BIG_ENDIAN B'10000000'
@@ -42,6 +44,8 @@ integer, parameter :: sbf_byte = c_int8_t, sbf_size = c_int64_t, &
     sbf_integer = c_int32_t, sbf_long = c_int64_t, sbf_float = c_float, &
     sbf_double = c_double, sbf_char = c_char, sbf_data_type = sbf_byte
 
+integer(sbf_byte), parameter :: sbf_writeonly = 2, sbf_readonly = 5, sbf_readwrite = 6
+
 type, public, bind(C) :: sbf_complex_float
     real(sbf_float) :: re, im
 end type sbf_complex_float
@@ -68,7 +72,7 @@ type, public :: sbf_Dataset
     character(len=1, kind=sbf_char), dimension(:), allocatable :: data
     type(sbf_DataHeader) :: header
     contains
-    procedure :: serialize => write_dataset
+    procedure :: serialize => write_dataset, deserialize => read_dataset
 end type
 
 type, public :: sbf_File
@@ -78,7 +82,7 @@ type, public :: sbf_File
     integer(sbf_byte) :: n_datasets
     type(sbf_Dataset), dimension(SBF_MAX_DATASETS) :: datasets
     contains
-    procedure :: serialize => write_sbf_file
+    procedure :: serialize => write_sbf_file, deserialize => read_sbf_file
     procedure :: add_dataset => sbf_add_dataset
     procedure :: close => close_sbf_file, open => open_sbf_file
 end type
@@ -89,7 +93,8 @@ interface sbf_Dataset
 end interface
 
 contains
-! This is the fun way we get to do generics in 
+
+! This is the 'fun' way we get to do 'generics' in 
 ! fortran without writing the same code again and again
 
 ! sbf_integer methods
@@ -124,33 +129,75 @@ end subroutine
 subroutine write_dataset(this, unit)
     class(sbf_Dataset), intent(in) :: this
     integer :: unit
+    ! placeholder wrapper in case we want to change behaviour in the future
     write(unit) this%header
     write(unit) this%data
+end subroutine
+
+subroutine read_dataset(this, unit)
+    class(sbf_Dataset), intent(inout) :: this
+    integer :: unit, i
+    integer(sbf_byte) :: dims
+    integer(sbf_size) :: n_bytes = 4
+    ! placeholder wrapper in case we want to change behaviour in the future
+    read(unit) this%header
+    call sbf_dh_get_dims(this%header, dims)
+    do i = 1, dims
+        n_bytes = n_bytes * this%header%shape(i)
+    end do
+    allocate(this%data(n_bytes))
+    read(unit) this%data
 end subroutine
 
 subroutine sbf_add_dataset(this, dset)
     class(sbf_File), intent(inout) :: this
     class(sbf_Dataset), intent(in) :: dset
+    ! increment the store of the number of datasets
     this%n_datasets = this%n_datasets + 1
+    ! assign it
     this%datasets(this%n_datasets) = dset
 end subroutine
 
-subroutine open_sbf_file(this)
+subroutine open_sbf_file(this, mode)
     class(sbf_File), intent(inout) :: this
+    integer(sbf_byte), optional :: mode
     logical :: file_exists
+
+    ! default: read only
+    character(len=10) :: action = "read"
+    if(present(mode)) then
+        select case (mode)
+            case (sbf_writeonly)
+                action = "write"
+            case (sbf_readwrite)
+                action = "readwrite"
+            case default
+                action = "read"
+        end select
+    endif
+
+    ! check if the file exists
     inquire(file=this%filename, exist=file_exists)
     if (.not. file_exists) then
         open(unit=this%filehandle, file=this%filename, &
-             status="new", access="stream", form="unformatted")
+             status="new", access="stream", &
+             action=action, form="unformatted")
     else
         open(unit=this%filehandle, file=this%filename, &
-             status="old", access="stream", form="unformatted")
+             status="old", access="stream", &
+             action=action, form="unformatted")
     end if
 end subroutine
  
 subroutine close_sbf_file(this)
     class(sbf_File), intent(inout) :: this
-    close(this%filehandle)
+    logical :: is_open
+    ! check that the file is open
+    inquire(this%filehandle, opened=is_open)
+    ! if so: close it
+    if(is_open) then
+        close(this%filehandle)
+    end if
 end subroutine
 
 subroutine write_sbf_file(this)
@@ -158,16 +205,45 @@ subroutine write_sbf_file(this)
     integer :: i
     type(sbf_FileHeader) :: header
     logical :: is_open
+
+    ! check whether the file is already open, if not: open it
     inquire(this%filehandle, opened=is_open)
     if(.not. is_open) then
-        call this%open
+        call this%open(mode=sbf_writeonly)
     end if
+
+    ! set up the file header
     header%n_datasets = this%n_datasets
+
+    ! write the header
     write(this%filehandle) header
+
+    ! write all the datasets
     do i = 1, this%n_datasets
         call this%datasets(i)%serialize(this%filehandle)
     end do
+
+    ! close the file
     call this%close
 end subroutine 
+
+subroutine read_sbf_file(this)
+    class(sbf_File), intent(inout) :: this
+    type(sbf_FileHeader) :: header
+    integer :: i
+    logical :: is_open
+
+    inquire(this%filehandle, opened=is_open)
+    if(.not. is_open) then
+        call this%open(mode=sbf_readonly)
+    end if
+
+    read(this%filehandle) header
+    do i = 1, this%n_datasets
+        call this%datasets(i)%deserialize(this%filehandle)
+    end do
+
+    call this%close
+end subroutine
 
 end module

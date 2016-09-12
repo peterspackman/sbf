@@ -1,4 +1,4 @@
-module basic_tests
+module basic_test
 use sbf
 use iso_c_binding
 implicit none
@@ -12,7 +12,7 @@ end function
 end module
 program basic
     use sbf
-    use basic_tests
+    use basic_test
     implicit none
     logical :: success
     if(.not. test_header()) then
