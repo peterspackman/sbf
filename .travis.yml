@@ -21,6 +21,7 @@ addons:
             - cmake-data
             - gcc-6
             - gfortran-6
+            - g++-6
 
 compiler:
     - gcc
