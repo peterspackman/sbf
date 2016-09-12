@@ -1,12 +1,21 @@
+module basic_tests
+use sbf
+use iso_c_binding
+implicit none
+contains
+
+logical function test_header()
+    type(sbf_DataHeader) :: header
+    test_header = (c_sizeof(header) == 128)
+end function
+
+end module
 program basic
     use sbf
+    use basic_tests
     implicit none
-    type(sbf_Dataset) :: dset
-    type(sbf_File) :: data_file
-    integer :: i
-    integer(sbf_integer), dimension(1000) :: data = [(i, i=1,1000)]
-    data_file%filename = "test_fortran.out"
-    dset = sbf_Dataset("integer_dataset", data)
-    call data_file%add_dataset(dset)
-    call data_file%serialize
+    logical :: success
+    if(.not. test_header()) then
+        call EXIT(1)
+    end if
 end program

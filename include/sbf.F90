@@ -6,11 +6,11 @@
 #define SBF_MAX_DATASETS 16
 #define SBF_NAME_LENGTH 62
 ! Flag bits
-#define SBF_BIG_ENDIAN 0b10000000
-#define SBF_COLUMN_MAJOR 0b01000000
-#define SBF_CUSTOM_DATATYPE 0b00100000
-#define SBF_UNUSED_BIT 0b00010000
-#define SBF_DIMENSION_BITS 0b00001111
+#define SBF_BIG_ENDIAN B'10000000'
+#define SBF_COLUMN_MAJOR B'01000000'
+#define SBF_CUSTOM_DATATYPE B'00100000'
+#define SBF_UNUSED_BIT B'00010000'
+#define SBF_DIMENSION_BITS B'00001111'
 ! Types
 #define SBF_BYTE 0
 #define SBF_INT 1
@@ -58,10 +58,10 @@ type, public, bind(C) :: sbf_FileHeader
 end type
 
 type, public, bind(C) :: sbf_DataHeader
-    character(sbf_char), dimension(SBF_NAME_LENGTH) :: name
-    integer(sbf_byte) :: flags
-    integer(sbf_data_type) :: data_type
-    integer(sbf_size), dimension(SBF_MAX_DIM) :: shape
+    character(sbf_char), dimension(SBF_NAME_LENGTH) :: name = char(0)
+    integer(sbf_byte) :: flags = 0
+    integer(sbf_data_type) :: data_type = 0
+    integer(sbf_size), dimension(SBF_MAX_DIM) :: shape = 0
 end type
 
 type, public :: sbf_Dataset
@@ -74,11 +74,13 @@ end type
 type, public :: sbf_File
     integer(sbf_byte) :: mode
     character(len=256) :: filename
+    integer :: filehandle = 11
     integer(sbf_byte) :: n_datasets
     type(sbf_Dataset), dimension(SBF_MAX_DATASETS) :: datasets
     contains
     procedure :: serialize => write_sbf_file
     procedure :: add_dataset => sbf_add_dataset
+    procedure :: close => close_sbf_file, open => open_sbf_file
 end type
 
 interface sbf_Dataset
@@ -89,23 +91,35 @@ end interface
 contains
 ! This is the fun way we get to do generics in 
 ! fortran without writing the same code again and again
+
+! sbf_integer methods
+#define FORTRAN_KIND integer
+#define DATATYPE SBF_INT
+#define DATA_KIND sbf_integer
+
 #define ROUTINE_NAME new_sbf_Dataset_int
-#define DATATYPE sbf_integer
 #define DIMENSIONS :
 #include "sbf/sbf_dataset_constructor.F90"
 #undef ROUTINE_NAME
-#undef DATATYPE
 #undef DIMENSIONS
 
-
 #define ROUTINE_NAME new_sbf_Dataset_int_2d
-#define DATATYPE sbf_integer
 #define DIMENSIONS :,:
 #include "sbf/sbf_dataset_constructor.F90"
 #undef ROUTINE_NAME
-#undef DATATYPE
 #undef DIMENSIONS
 
+subroutine sbf_dh_get_dims(this, res)
+    type(sbf_DataHeader), intent(in) :: this
+    integer(sbf_byte) :: res
+    res = iand(this%flags, SBF_DIMENSION_BITS)
+end subroutine
+
+subroutine sbf_dh_set_dims(this, dims)
+    type(sbf_DataHeader), intent(inout) :: this
+    integer(sbf_byte) :: dims
+    this%flags = ior(this%flags, iand(dims, SBF_DIMENSION_BITS))
+end subroutine
 
 subroutine write_dataset(this, unit)
     class(sbf_Dataset), intent(in) :: this
@@ -121,18 +135,39 @@ subroutine sbf_add_dataset(this, dset)
     this%datasets(this%n_datasets) = dset
 end subroutine
 
+subroutine open_sbf_file(this)
+    class(sbf_File), intent(inout) :: this
+    logical :: file_exists
+    inquire(file=this%filename, exist=file_exists)
+    if (.not. file_exists) then
+        open(unit=this%filehandle, file=this%filename, &
+             status="new", access="stream", form="unformatted")
+    else
+        open(unit=this%filehandle, file=this%filename, &
+             status="old", access="stream", form="unformatted")
+    end if
+end subroutine
+ 
+subroutine close_sbf_file(this)
+    class(sbf_File), intent(inout) :: this
+    close(this%filehandle)
+end subroutine
+
 subroutine write_sbf_file(this)
-    class(sbf_File), intent(in) :: this
-    integer :: unit = 11, i
+    class(sbf_File), intent(inout) :: this
+    integer :: i
     type(sbf_FileHeader) :: header
+    logical :: is_open
+    inquire(this%filehandle, opened=is_open)
+    if(.not. is_open) then
+        call this%open
+    end if
     header%n_datasets = this%n_datasets
-    
-    open(unit=11, file=this%filename, access="stream", form="unformatted")
-    write(unit) header
+    write(this%filehandle) header
     do i = 1, this%n_datasets
-        call this%datasets(i)%serialize(unit)
+        call this%datasets(i)%serialize(this%filehandle)
     end do
-    close(unit)
+    call this%close
 end subroutine 
 
 end module

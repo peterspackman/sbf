@@ -2,7 +2,7 @@
 #include "unit_test.h"
 
 int tests_run = 0;
-const char *test_filename = "/tmp/sbf_test.sbf";
+const char *test_filename = "/tmp/sbf_test_c.sbf";
 
 static char *test_write() {
     sbf_File file = sbf_new_file;
