@@ -85,6 +85,9 @@ type, public :: sbf_File
     procedure :: serialize => write_sbf_file, deserialize => read_sbf_file
     procedure :: add_dataset => sbf_add_dataset
     procedure :: close => close_sbf_file, open => open_sbf_file
+    ! getters
+    generic, public :: get => get_sbf_Dataset_int, get_sbf_Dataset_float
+    procedure, private :: get_sbf_Dataset_int, get_sbf_Dataset_float
 end type
 
 interface sbf_Dataset
@@ -114,6 +117,27 @@ contains
 #undef ROUTINE_NAME
 #undef DIMENSIONS
 
+#define ROUTINE_NAME get_sbf_Dataset_int
+#define DIMENSIONS :
+#include "sbf/sbf_read_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSIONS
+
+#undef FORTRAN_KIND
+#undef DATATYPE
+#undef DATA_KIND
+#define FORTRAN_KIND real
+#define DATATYPE SBF_FLOAT
+#define DATA_KIND sbf_float
+
+#define ROUTINE_NAME get_sbf_Dataset_float
+#define DIMENSIONS :
+#include "sbf/sbf_read_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSIONS
+
+
+
 subroutine sbf_dh_get_dims(this, res)
     type(sbf_DataHeader), intent(in) :: this
     integer(sbf_byte) :: res
@@ -140,14 +164,43 @@ subroutine read_dataset(this, unit)
     integer(sbf_byte) :: dims
     integer(sbf_size) :: n_bytes = 4
     ! placeholder wrapper in case we want to change behaviour in the future
+    print *, "read_dataset"
     read(unit) this%header
     call sbf_dh_get_dims(this%header, dims)
+    print *, "dims = ", dims
     do i = 1, dims
         n_bytes = n_bytes * this%header%shape(i)
     end do
+    print *, "n_bytes = ", n_bytes
     allocate(this%data(n_bytes))
     read(unit) this%data
 end subroutine
+
+logical function match(char_array, str)
+    character(sbf_char), dimension(SBF_NAME_LENGTH), intent(in) :: char_array
+    character(len=*), intent(in) :: str
+    integer :: i
+    match = .true.
+    do i = 1, len(str) 
+        if (char_array(i) .ne. str(i:i)) then
+            match = .false.
+            return
+        end if
+    end do
+end function
+
+integer function index_of_dataset_by_name(this, name)
+    character(len=*) :: name
+    class(sbf_File), intent(in) :: this
+    integer :: i
+    index_of_dataset_by_name = -1
+    do i = 1, this%n_datasets
+        if (match(this%datasets(i)%header%name, name)) then
+            index_of_dataset_by_name = i
+            return
+        end if
+    end do
+end function
 
 subroutine sbf_add_dataset(this, dset)
     class(sbf_File), intent(inout) :: this
@@ -239,6 +292,7 @@ subroutine read_sbf_file(this)
     end if
 
     read(this%filehandle) header
+    this%n_datasets = header%n_datasets
     do i = 1, this%n_datasets
         call this%datasets(i)%deserialize(this%filehandle)
     end do
