@@ -76,8 +76,26 @@ type, public :: sbf_Dataset
 end type
 
 type, public :: sbf_File
-    integer(sbf_byte) :: mode
-    character(len=256) :: filename
+    !!! class for information about a SBF
+    !!!
+    !!! Members:
+    !!!     mode        file mode to use with `open` [default=sbf_readonly]
+    !!!     filename    the name of the file on disk [default='out.sbf']
+    !!!     filehandle  the fortran file `unit` for use with `open`/`close` [default=11]
+    !!!     n_datasets  the number of datasets in this object [default=0]
+    !!!     datasets    the array of actual datasets, size SBF_MAX_DATASETS
+    !!!
+    !!! Methods:
+    !!!     serialize, deserialize      write/read an sbf file to/from disk 
+    !!!
+    !!!     add_dataset                 append a dataset to this file to be written later 
+    !!!
+    !!!     open/close                  wrappers for calls to fortran's `open`/`close`
+    !!!                                 will need to be used to open a file for writing.
+    !!!     get                         populate the given array with the dataset from this file
+    !!!                                 matching `name`. 
+    integer(sbf_byte) :: mode = sbf_readonly
+    character(len=256) :: filename = "out.sbf"
     integer :: filehandle = 11
     integer(sbf_byte) :: n_datasets = 0
     type(sbf_Dataset), dimension(SBF_MAX_DATASETS) :: datasets
@@ -90,9 +108,40 @@ type, public :: sbf_File
     procedure, private :: get_sbf_Dataset_int, get_sbf_Dataset_float
 end type
 
+! Interfaces
 interface sbf_Dataset
-    module procedure new_sbf_Dataset_int
-    module procedure new_sbf_Dataset_int_2d
+    module procedure new_sbf_Dataset_sbf_byte_1d, new_sbf_Dataset_sbf_byte_2d, &
+    new_sbf_Dataset_sbf_byte_3d, new_sbf_Dataset_sbf_byte_4d, &
+    new_sbf_Dataset_sbf_byte_5d, new_sbf_Dataset_sbf_byte_6d, &
+    new_sbf_Dataset_sbf_byte_7d, &
+    new_sbf_Dataset_sbf_integer_1d, new_sbf_Dataset_sbf_integer_2d, &
+    new_sbf_Dataset_sbf_integer_3d, new_sbf_Dataset_sbf_integer_4d, &
+    new_sbf_Dataset_sbf_integer_5d, new_sbf_Dataset_sbf_integer_6d, &
+    new_sbf_Dataset_sbf_integer_7d, &
+    new_sbf_Dataset_sbf_long_1d, new_sbf_Dataset_sbf_long_2d, &
+    new_sbf_Dataset_sbf_long_3d, new_sbf_Dataset_sbf_long_4d, &
+    new_sbf_Dataset_sbf_long_5d, new_sbf_Dataset_sbf_long_6d, &
+    new_sbf_Dataset_sbf_long_7d, &
+    new_sbf_Dataset_sbf_char_1d, new_sbf_Dataset_sbf_char_2d, &
+    new_sbf_Dataset_sbf_char_3d, new_sbf_Dataset_sbf_char_4d, &
+    new_sbf_Dataset_sbf_char_5d, new_sbf_Dataset_sbf_char_6d, &
+    new_sbf_Dataset_sbf_char_7d,  &
+    new_sbf_Dataset_cpx_sbf_float_1d, new_sbf_Dataset_cpx_sbf_float_2d, &
+    new_sbf_Dataset_cpx_sbf_float_3d, new_sbf_Dataset_cpx_sbf_float_4d, &
+    new_sbf_Dataset_cpx_sbf_float_5d, new_sbf_Dataset_cpx_sbf_float_6d, &
+    new_sbf_Dataset_cpx_sbf_float_7d, &
+    new_sbf_Dataset_cpx_sbf_double_1d, new_sbf_Dataset_cpx_sbf_double_2d, &
+    new_sbf_Dataset_cpx_sbf_double_3d, new_sbf_Dataset_cpx_sbf_double_4d, &
+    new_sbf_Dataset_cpx_sbf_double_5d, new_sbf_Dataset_cpx_sbf_double_6d, &
+    new_sbf_Dataset_cpx_sbf_double_7d, &
+    new_sbf_Dataset_sbf_float_1d, new_sbf_Dataset_sbf_float_2d, &
+    new_sbf_Dataset_sbf_float_3d, new_sbf_Dataset_sbf_float_4d, &
+    new_sbf_Dataset_sbf_float_5d, new_sbf_Dataset_sbf_float_6d, &
+    new_sbf_Dataset_sbf_float_7d, &
+    new_sbf_Dataset_sbf_double_1d, new_sbf_Dataset_sbf_double_2d, &
+    new_sbf_Dataset_sbf_double_3d, new_sbf_Dataset_sbf_double_4d, &
+    new_sbf_Dataset_sbf_double_5d, new_sbf_Dataset_sbf_double_6d, &
+    new_sbf_Dataset_sbf_double_7d
 end interface
 
 contains
@@ -100,41 +149,34 @@ contains
 ! This is the 'fun' way we get to do 'generics' in 
 ! fortran without writing the same code again and again
 
-! sbf_integer methods
+#include "sbf/sbf_dataset_constructors.F90"
+
 #define FORTRAN_KIND integer
 #define DATATYPE SBF_INT
 #define DATA_KIND sbf_integer
 
-#define ROUTINE_NAME new_sbf_Dataset_int
-#define DIMENSIONS :
-#include "sbf/sbf_dataset_constructor.F90"
-#undef ROUTINE_NAME
-#undef DIMENSIONS
-
-#define ROUTINE_NAME new_sbf_Dataset_int_2d
-#define DIMENSIONS :,:
-#include "sbf/sbf_dataset_constructor.F90"
-#undef ROUTINE_NAME
-#undef DIMENSIONS
 
 #define ROUTINE_NAME get_sbf_Dataset_int
 #define DIMENSIONS :
 #include "sbf/sbf_read_dataset.F90"
 #undef ROUTINE_NAME
 #undef DIMENSIONS
-
-#undef FORTRAN_KIND
+#undef FORTRAN_KIND 
 #undef DATATYPE
 #undef DATA_KIND
 #define FORTRAN_KIND real
 #define DATATYPE SBF_FLOAT
 #define DATA_KIND sbf_float
 
+
 #define ROUTINE_NAME get_sbf_Dataset_float
 #define DIMENSIONS :
 #include "sbf/sbf_read_dataset.F90"
 #undef ROUTINE_NAME
 #undef DIMENSIONS
+#undef FORTRAN_KIND 
+#undef DATATYPE
+#undef DATA_KIND
 
 
 
