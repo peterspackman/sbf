@@ -104,8 +104,63 @@ type, public :: sbf_File
     procedure :: add_dataset => sbf_add_dataset
     procedure :: close => close_sbf_file, open => open_sbf_file
     ! getters
-    generic, public :: get => get_sbf_Dataset_int, get_sbf_Dataset_float
-    procedure, private :: get_sbf_Dataset_int, get_sbf_Dataset_float
+    generic, public :: get =>  get_sbf_Dataset_sbf_char_1d, get_sbf_Dataset_sbf_char_2d, &
+        get_sbf_Dataset_sbf_char_3d, get_sbf_Dataset_sbf_char_4d, &
+        get_sbf_Dataset_sbf_char_5d, get_sbf_Dataset_sbf_char_6d, &
+        get_sbf_Dataset_sbf_char_7d, get_sbf_Dataset_sbf_byte_1d, &
+        get_sbf_Dataset_sbf_byte_2d, get_sbf_Dataset_sbf_byte_3d, &
+        get_sbf_Dataset_sbf_byte_4d, get_sbf_Dataset_sbf_byte_5d, &
+        get_sbf_Dataset_sbf_byte_6d, get_sbf_Dataset_sbf_byte_7d, &
+        get_sbf_Dataset_sbf_integer_1d, get_sbf_Dataset_sbf_integer_2d, &
+        get_sbf_Dataset_sbf_integer_3d, get_sbf_Dataset_sbf_integer_4d, &
+        get_sbf_Dataset_sbf_integer_5d, get_sbf_Dataset_sbf_integer_6d, &
+        get_sbf_Dataset_sbf_integer_7d, get_sbf_Dataset_sbf_long_1d, &
+        get_sbf_Dataset_sbf_long_2d, get_sbf_Dataset_sbf_long_3d, &
+        get_sbf_Dataset_sbf_long_4d, get_sbf_Dataset_sbf_long_5d, &
+        get_sbf_Dataset_sbf_long_6d, get_sbf_Dataset_sbf_long_7d, &
+        get_sbf_Dataset_sbf_float_1d, get_sbf_Dataset_sbf_float_2d, &
+        get_sbf_Dataset_sbf_float_3d, get_sbf_Dataset_sbf_float_4d, &
+        get_sbf_Dataset_sbf_float_5d, get_sbf_Dataset_sbf_float_6d, &
+        get_sbf_Dataset_sbf_float_7d, get_sbf_Dataset_sbf_double_1d, &
+        get_sbf_Dataset_sbf_double_2d, get_sbf_Dataset_sbf_double_3d, &
+        get_sbf_Dataset_sbf_double_4d, get_sbf_Dataset_sbf_double_5d, &
+        get_sbf_Dataset_sbf_double_6d, get_sbf_Dataset_sbf_double_7d, &
+        get_sbf_Dataset_cpx_sbf_float_1d, get_sbf_Dataset_cpx_sbf_float_2d, &
+        get_sbf_Dataset_cpx_sbf_float_3d, get_sbf_Dataset_cpx_sbf_float_4d, &
+        get_sbf_Dataset_cpx_sbf_float_5d, get_sbf_Dataset_cpx_sbf_float_6d, &
+        get_sbf_Dataset_cpx_sbf_float_7d, get_sbf_Dataset_cpx_sbf_double_1d, &
+        get_sbf_Dataset_cpx_sbf_double_2d, get_sbf_Dataset_cpx_sbf_double_3d, &
+        get_sbf_Dataset_cpx_sbf_double_4d, get_sbf_Dataset_cpx_sbf_double_5d, &
+        get_sbf_Dataset_cpx_sbf_double_6d, get_sbf_Dataset_cpx_sbf_double_7d
+
+    procedure, private :: get_sbf_Dataset_sbf_char_1d, get_sbf_Dataset_sbf_char_2d, &
+        get_sbf_Dataset_sbf_char_3d, get_sbf_Dataset_sbf_char_4d, &
+        get_sbf_Dataset_sbf_char_5d, get_sbf_Dataset_sbf_char_6d, &
+        get_sbf_Dataset_sbf_char_7d, get_sbf_Dataset_sbf_byte_1d, &
+        get_sbf_Dataset_sbf_byte_2d, get_sbf_Dataset_sbf_byte_3d, &
+        get_sbf_Dataset_sbf_byte_4d, get_sbf_Dataset_sbf_byte_5d, &
+        get_sbf_Dataset_sbf_byte_6d, get_sbf_Dataset_sbf_byte_7d, &
+        get_sbf_Dataset_sbf_integer_1d, get_sbf_Dataset_sbf_integer_2d, &
+        get_sbf_Dataset_sbf_integer_3d, get_sbf_Dataset_sbf_integer_4d, &
+        get_sbf_Dataset_sbf_integer_5d, get_sbf_Dataset_sbf_integer_6d, &
+        get_sbf_Dataset_sbf_integer_7d, get_sbf_Dataset_sbf_long_1d, &
+        get_sbf_Dataset_sbf_long_2d, get_sbf_Dataset_sbf_long_3d, &
+        get_sbf_Dataset_sbf_long_4d, get_sbf_Dataset_sbf_long_5d, &
+        get_sbf_Dataset_sbf_long_6d, get_sbf_Dataset_sbf_long_7d, &
+        get_sbf_Dataset_sbf_float_1d, get_sbf_Dataset_sbf_float_2d, &
+        get_sbf_Dataset_sbf_float_3d, get_sbf_Dataset_sbf_float_4d, &
+        get_sbf_Dataset_sbf_float_5d, get_sbf_Dataset_sbf_float_6d, &
+        get_sbf_Dataset_sbf_float_7d, get_sbf_Dataset_sbf_double_1d, &
+        get_sbf_Dataset_sbf_double_2d, get_sbf_Dataset_sbf_double_3d, &
+        get_sbf_Dataset_sbf_double_4d, get_sbf_Dataset_sbf_double_5d, &
+        get_sbf_Dataset_sbf_double_6d, get_sbf_Dataset_sbf_double_7d, &
+        get_sbf_Dataset_cpx_sbf_float_1d, get_sbf_Dataset_cpx_sbf_float_2d, &
+        get_sbf_Dataset_cpx_sbf_float_3d, get_sbf_Dataset_cpx_sbf_float_4d, &
+        get_sbf_Dataset_cpx_sbf_float_5d, get_sbf_Dataset_cpx_sbf_float_6d, &
+        get_sbf_Dataset_cpx_sbf_float_7d, get_sbf_Dataset_cpx_sbf_double_1d, &
+        get_sbf_Dataset_cpx_sbf_double_2d, get_sbf_Dataset_cpx_sbf_double_3d, &
+        get_sbf_Dataset_cpx_sbf_double_4d, get_sbf_Dataset_cpx_sbf_double_5d, &
+        get_sbf_Dataset_cpx_sbf_double_6d, get_sbf_Dataset_cpx_sbf_double_7d
 end type
 
 ! Interfaces
@@ -149,36 +204,11 @@ contains
 ! This is the 'fun' way we get to do 'generics' in 
 ! fortran without writing the same code again and again
 
+! create methods
 #include "sbf/sbf_dataset_constructors.F90"
 
-#define FORTRAN_KIND integer
-#define DATATYPE SBF_INT
-#define DATA_KIND sbf_integer
-
-
-#define ROUTINE_NAME get_sbf_Dataset_int
-#define DIMENSIONS :
-#include "sbf/sbf_read_dataset.F90"
-#undef ROUTINE_NAME
-#undef DIMENSIONS
-#undef FORTRAN_KIND 
-#undef DATATYPE
-#undef DATA_KIND
-#define FORTRAN_KIND real
-#define DATATYPE SBF_FLOAT
-#define DATA_KIND sbf_float
-
-
-#define ROUTINE_NAME get_sbf_Dataset_float
-#define DIMENSIONS :
-#include "sbf/sbf_read_dataset.F90"
-#undef ROUTINE_NAME
-#undef DIMENSIONS
-#undef FORTRAN_KIND 
-#undef DATATYPE
-#undef DATA_KIND
-
-
+! get methods
+#include "sbf/sbf_get_datasets.F90"
 
 subroutine sbf_dh_get_dims(this, res)
     type(sbf_DataHeader), intent(in) :: this
