@@ -228,13 +228,11 @@ function new_sbf_Dataset_string(name, data) result(res)
         else; res%header%name(i) = char(0)
         end if
     end do
-    print *, "input string: ", data
     ! how many bytes do we have
     dims = 1
     res%header%shape(1) = len(trim(data))
     allocate(res%data(res%header%shape(1)))
     res%data = transfer(trim(data), res%data)
-    print *, "res%data", res%data
     ! set the data type in file
     res%header%data_type = SBF_CHAR
     ! set the dimensions in file
