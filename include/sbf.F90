@@ -79,7 +79,7 @@ type, public :: sbf_File
     integer(sbf_byte) :: mode
     character(len=256) :: filename
     integer :: filehandle = 11
-    integer(sbf_byte) :: n_datasets
+    integer(sbf_byte) :: n_datasets = 0
     type(sbf_Dataset), dimension(SBF_MAX_DATASETS) :: datasets
     contains
     procedure :: serialize => write_sbf_file, deserialize => read_sbf_file
@@ -164,14 +164,11 @@ subroutine read_dataset(this, unit)
     integer(sbf_byte) :: dims
     integer(sbf_size) :: n_bytes = 4
     ! placeholder wrapper in case we want to change behaviour in the future
-    print *, "read_dataset"
     read(unit) this%header
     call sbf_dh_get_dims(this%header, dims)
-    print *, "dims = ", dims
     do i = 1, dims
         n_bytes = n_bytes * this%header%shape(i)
     end do
-    print *, "n_bytes = ", n_bytes
     allocate(this%data(n_bytes))
     read(unit) this%data
 end subroutine

@@ -9,10 +9,15 @@ program write_read_file
     character(sbf_byte), dimension(:), allocatable :: bytes
     integer(sbf_integer), dimension(1000) :: data = [(i*i, i=0,999)]
     integer(sbf_integer), dimension(:), allocatable :: read_data
+    print *, "Setting filename"
     data_file_write%filename = filename
+    print *, "creating dataset"
     dset = sbf_Dataset("integer_dataset", data)
+    print *, "adding dataset"
     call data_file_write%add_dataset(dset)
+    print *, "writing file"
     call data_file_write%serialize
+    print *, "closing file"
     call data_file_write%close
     print *, "Opening file" 
     data_file_read%filename = filename
