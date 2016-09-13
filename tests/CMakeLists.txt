@@ -10,8 +10,10 @@ foreach(SRC ${TEST_SRC})
     add_test(NAME ${EXE} COMMAND ${EXE})
 endforeach()
 
-add_executable(basic_fortran basic.F90 ${PROJECT_SOURCE_DIR}/include/sbf.F90)
+add_executable(basic_fortran basic.F90)
+target_link_libraries(basic_fortran sbf_fortran)
 add_test(NAME basic_fortran COMMAND basic_fortran)
 
-add_executable(write_read_file_fortran write_read_file.F90 ${PROJECT_SOURCE_DIR}/include/sbf.F90)
+add_executable(write_read_file_fortran write_read_file.F90)
+target_link_libraries(write_read_file_fortran sbf_fortran)
 add_test(NAME write_read_file_fortran COMMAND write_read_file_fortran)

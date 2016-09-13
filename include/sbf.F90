@@ -21,6 +21,7 @@
 #define SBF_DOUBLE 4
 #define SBF_CFLOAT 5
 #define SBF_CDOUBLE 6
+#define SBF_CHAR SBF_BYTE
 
 #define SBF_RESULT_SUCCESS 1
 #define SBF_RESULT_FILE_OPEN_FAILURE 2
@@ -133,7 +134,8 @@ type, public :: sbf_File
         get_sbf_Dataset_cpx_sbf_float_7d, get_sbf_Dataset_cpx_sbf_double_1d, &
         get_sbf_Dataset_cpx_sbf_double_2d, get_sbf_Dataset_cpx_sbf_double_3d, &
         get_sbf_Dataset_cpx_sbf_double_4d, get_sbf_Dataset_cpx_sbf_double_5d, &
-        get_sbf_Dataset_cpx_sbf_double_6d, get_sbf_Dataset_cpx_sbf_double_7d
+        get_sbf_Dataset_cpx_sbf_double_6d, get_sbf_Dataset_cpx_sbf_double_7d, &
+        get_sbf_Dataset_string
 
     procedure, private :: get_sbf_Dataset_sbf_char_1d, get_sbf_Dataset_sbf_char_2d, &
         get_sbf_Dataset_sbf_char_3d, get_sbf_Dataset_sbf_char_4d, &
@@ -162,7 +164,8 @@ type, public :: sbf_File
         get_sbf_Dataset_cpx_sbf_float_7d, get_sbf_Dataset_cpx_sbf_double_1d, &
         get_sbf_Dataset_cpx_sbf_double_2d, get_sbf_Dataset_cpx_sbf_double_3d, &
         get_sbf_Dataset_cpx_sbf_double_4d, get_sbf_Dataset_cpx_sbf_double_5d, &
-        get_sbf_Dataset_cpx_sbf_double_6d, get_sbf_Dataset_cpx_sbf_double_7d
+        get_sbf_Dataset_cpx_sbf_double_6d, get_sbf_Dataset_cpx_sbf_double_7d, &
+        get_sbf_Dataset_string
 end type
 
 ! Interfaces
@@ -198,7 +201,7 @@ interface sbf_Dataset
     new_sbf_Dataset_sbf_double_1d, new_sbf_Dataset_sbf_double_2d, &
     new_sbf_Dataset_sbf_double_3d, new_sbf_Dataset_sbf_double_4d, &
     new_sbf_Dataset_sbf_double_5d, new_sbf_Dataset_sbf_double_6d, &
-    new_sbf_Dataset_sbf_double_7d
+    new_sbf_Dataset_sbf_double_7d, new_sbf_Dataset_string
 end interface
 
 contains
@@ -212,6 +215,58 @@ contains
 ! get methods
 #include "sbf/sbf_get_datasets.F90"
 
+function new_sbf_Dataset_string(name, data) result(res)
+    character(len=*) :: name, data
+    type(sbf_Dataset) :: res
+    integer :: length, name_length, i
+    integer(sbf_byte) :: dims
+    name_length = len(name)
+    ! assign the character array from the given string
+    do i=1, size(res%header%name)
+        if(i < name_length + 1) then
+            res%header%name(i) = name(i:i)
+        else; res%header%name(i) = char(0)
+        end if
+    end do
+    print *, "input string: ", data
+    ! how many bytes do we have
+    dims = 1
+    res%header%shape(1) = len(trim(data))
+    allocate(res%data(res%header%shape(1)))
+    res%data = transfer(trim(data), res%data)
+    print *, "res%data", res%data
+    ! set the data type in file
+    res%header%data_type = SBF_CHAR
+    ! set the dimensions in file
+    call sbf_dh_set_dims(res%header, dims)
+    ! set the shape in file
+end function
+
+subroutine get_sbf_Dataset_string(this, name, data, errflag)
+    character(len=*), intent(in) :: name
+    class(sbf_File), intent(in) :: this
+    character(len=:), allocatable, intent(out) :: data
+    integer, intent(out), optional :: errflag
+    character :: example_value
+    type(sbf_Dataset) :: dset
+    integer :: error = SBF_RESULT_SUCCESS, ind
+    
+    ind = index_of_dataset_by_name(this,name)
+    if ((ind < 1) .or. (ind > this%n_datasets)) then
+        error = SBF_RESULT_DATASET_NOT_FOUND
+        if(present(errflag)) errflag = error
+        return
+    end if
+    dset = this%datasets(ind)
+    if (.not. sbf_dt_compatible(dset%header%data_type, c_sizeof(example_value))) then
+        error = SBF_RESULT_INCOMPATIBLE_DATA_TYPES
+        if(present(errflag)) errflag = error
+        return
+    endif
+    allocate(character(len=dset%header%shape(1)) :: data)
+    data = transfer(dset%data, mold=data)
+    if(present(errflag)) errflag = error
+end subroutine
 
 function sbf_dt_size(sbf_dtype)
     integer(sbf_byte) :: sbf_dtype
