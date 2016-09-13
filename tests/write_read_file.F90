@@ -8,6 +8,7 @@ program write_read_file
     integer :: i
     character(sbf_byte), dimension(:), allocatable :: bytes
     integer(sbf_integer), dimension(1000) :: data = [(i*i, i=0,999)]
+    complex(sbf_float), dimension(100,100) :: cdata = reshape([(i*i, i = 0,9999)], [100, 100])
     integer(sbf_integer), dimension(:), allocatable :: read_data
     integer :: errflag
     print *, "Setting filename"
@@ -15,6 +16,9 @@ program write_read_file
     print *, "Creating dataset"
     dset = sbf_Dataset("integer_dataset", data)
     print *, "Adding dataset"
+    call data_file_write%add_dataset(dset)
+    dset = sbf_Dataset("complex_dataset", cdata)
+    print *, "Adding complex dataset"
     call data_file_write%add_dataset(dset)
     print *, "Writing file"
     call data_file_write%serialize

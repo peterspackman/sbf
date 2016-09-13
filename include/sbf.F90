@@ -212,34 +212,38 @@ contains
 ! get methods
 #include "sbf/sbf_get_datasets.F90"
 
-logical function sbf_dt_compatible(sbf_dtype, size_bytes)
+
+function sbf_dt_size(sbf_dtype)
     integer(sbf_byte) :: sbf_dtype
+    integer(c_size_t) :: sbf_dt_size
     integer(sbf_integer) :: int
     integer(sbf_long) :: long
     real(sbf_float) :: float
     real(sbf_double) :: double
-    integer(c_size_t) :: size_bytes
-    integer :: sbf_dtype_size_bytes
     select case (sbf_dtype)
         case (SBF_BYTE)
-            sbf_dtype_size_bytes = c_sizeof(sbf_dtype)
+            sbf_dt_size  = c_sizeof(sbf_dtype)
         case (SBF_FLOAT)
-            sbf_dtype_size_bytes = c_sizeof(float)
+            sbf_dt_size  = c_sizeof(float)
         case (SBF_INT)
-            sbf_dtype_size_bytes = c_sizeof(int)
+            sbf_dt_size  = c_sizeof(int)
         case (SBF_DOUBLE)
-            sbf_dtype_size_bytes = c_sizeof(double)
+            sbf_dt_size  = c_sizeof(double)
         case (SBF_LONG)
-            sbf_dtype_size_bytes = c_sizeof(long)
+            sbf_dt_size  = c_sizeof(long)
         case (SBF_CFLOAT)
-            sbf_dtype_size_bytes = 2 * c_sizeof(float)
-        case (SBF_CDOUBLE)
-            sbf_dtype_size_bytes = 2 * c_sizeof(double)
+            sbf_dt_size  = 2 * c_sizeof(float)
+        case (SBF_CDOUBLE)  
+            sbf_dt_size  = 2 * c_sizeof(double)
         case default
-            sbf_dtype_size_bytes = 1
+            sbf_dt_size  = 1
     end select
-    print *, "sbf_dtype_size_bytes = ", sbf_dtype_size_bytes, "size_bytes = ", size_bytes
-    sbf_dt_compatible = (sbf_dtype_size_bytes == size_bytes)
+end function
+
+logical function sbf_dt_compatible(sbf_dtype, size_bytes)
+    integer(sbf_byte) :: sbf_dtype
+    integer(c_size_t) :: size_bytes
+    sbf_dt_compatible = (sbf_dt_size(sbf_dtype) == size_bytes)
 end function
 
 subroutine sbf_dh_get_dims(this, res)
@@ -266,9 +270,10 @@ subroutine read_dataset(this, unit)
     class(sbf_Dataset), intent(inout) :: this
     integer :: unit, i
     integer(sbf_byte) :: dims
-    integer(sbf_size) :: n_bytes = 4
+    integer(sbf_size) :: n_bytes
     ! placeholder wrapper in case we want to change behaviour in the future
     read(unit) this%header
+    n_bytes = sbf_dt_size(this%header%data_type)
     call sbf_dh_get_dims(this%header, dims)
     do i = 1, dims
         n_bytes = n_bytes * this%header%shape(i)
