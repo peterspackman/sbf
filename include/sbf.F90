@@ -28,6 +28,8 @@
 #define SBF_RESULT_WRITE_FAILURE 4
 #define SBF_RESULT_READ_FAILURE 5
 #define SBF_RESULT_MAX_DATASETS_EXCEEDED_FAILURE 6
+#define SBF_RESULT_DATASET_NOT_FOUND 7
+#define SBF_RESULT_INCOMPATIBLE_DATA_TYPES 8
 
 #define SBF_FILE_READONLY 0
 #define SBF_FILE_WRITEONLY 1
@@ -210,6 +212,36 @@ contains
 ! get methods
 #include "sbf/sbf_get_datasets.F90"
 
+logical function sbf_dt_compatible(sbf_dtype, size_bytes)
+    integer(sbf_byte) :: sbf_dtype
+    integer(sbf_integer) :: int
+    integer(sbf_long) :: long
+    real(sbf_float) :: float
+    real(sbf_double) :: double
+    integer(c_size_t) :: size_bytes
+    integer :: sbf_dtype_size_bytes
+    select case (sbf_dtype)
+        case (SBF_BYTE)
+            sbf_dtype_size_bytes = c_sizeof(sbf_dtype)
+        case (SBF_FLOAT)
+            sbf_dtype_size_bytes = c_sizeof(float)
+        case (SBF_INT)
+            sbf_dtype_size_bytes = c_sizeof(int)
+        case (SBF_DOUBLE)
+            sbf_dtype_size_bytes = c_sizeof(double)
+        case (SBF_LONG)
+            sbf_dtype_size_bytes = c_sizeof(long)
+        case (SBF_CFLOAT)
+            sbf_dtype_size_bytes = 2 * c_sizeof(float)
+        case (SBF_CDOUBLE)
+            sbf_dtype_size_bytes = 2 * c_sizeof(double)
+        case default
+            sbf_dtype_size_bytes = 1
+    end select
+    print *, "sbf_dtype_size_bytes = ", sbf_dtype_size_bytes, "size_bytes = ", size_bytes
+    sbf_dt_compatible = (sbf_dtype_size_bytes == size_bytes)
+end function
+
 subroutine sbf_dh_get_dims(this, res)
     type(sbf_DataHeader), intent(in) :: this
     integer(sbf_byte) :: res
@@ -368,5 +400,27 @@ subroutine read_sbf_file(this)
 
     call this%close
 end subroutine
+
+function sbf_strerr(code)
+    integer :: code
+    character(len=128) :: sbf_strerr
+    sbf_strerr = "success"
+    select case (code)
+        case(SBF_RESULT_INCOMPATIBLE_DATA_TYPES)
+            sbf_strerr = "SBF: Incompatible data types in `get` call"
+        case(SBF_RESULT_DATASET_NOT_FOUND)
+            sbf_strerr = "SBF: Dataset not found"
+        case(SBF_RESULT_READ_FAILURE)
+            sbf_strerr = "SBF: Read failure"
+        case(SBF_RESULT_WRITE_FAILURE)
+            sbf_strerr = "SBF: Write failure"
+        case(SBF_RESULT_MAX_DATASETS_EXCEEDED_FAILURE)
+            sbf_strerr = "SBF: Maximum number of datasets exceeded"
+        case(SBF_RESULT_FILE_CLOSE_FAILURE)
+            sbf_strerr = "SBF: Failed to close file"
+        case(SBF_RESULT_FILE_OPEN_FAILURE)
+            sbf_strerr = "SBF: Failed to open file"
+    end select
+end function
 
 end module

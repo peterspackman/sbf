@@ -9,24 +9,29 @@ program write_read_file
     character(sbf_byte), dimension(:), allocatable :: bytes
     integer(sbf_integer), dimension(1000) :: data = [(i*i, i=0,999)]
     integer(sbf_integer), dimension(:), allocatable :: read_data
+    integer :: errflag
     print *, "Setting filename"
     data_file_write%filename = filename
-    print *, "creating dataset"
+    print *, "Creating dataset"
     dset = sbf_Dataset("integer_dataset", data)
-    print *, "adding dataset"
+    print *, "Adding dataset"
     call data_file_write%add_dataset(dset)
-    print *, "writing file"
+    print *, "Writing file"
     call data_file_write%serialize
-    print *, "closing file"
+    print *, "Closing file"
     call data_file_write%close
     print *, "Opening file" 
     data_file_read%filename = filename
     print *, "Deserializing"
     call data_file_read%deserialize
     print *, "Getting dataset"
-    call data_file_read%get("integer_dataset", read_data)
-    print *, "closing"
+    call data_file_read%get("integer_dataset", read_data, errflag)
+    print *, "Closing"
     call data_file_read%close
-    if(all(abs(data - read_data) == 0)) print *, "equal"
+    if (errflag == 1) then
+        if(all(abs(data - read_data) == 0)) print *, "equal"
+
+    else; print *, "There was an error reading the dataset: ", sbf_strerr(errflag)
+    end if
 
 end program
