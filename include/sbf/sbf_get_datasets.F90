@@ -5,6 +5,13 @@
 #define DATA_KIND sbf_char
 
 
+#define ROUTINE_NAME get_sbf_Dataset_sbf_char_0d
+#define DIMENSION 0
+#include "sbf_get_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSION
+
+
 #define ROUTINE_NAME get_sbf_Dataset_sbf_char_1d
 #define DIMENSION 1
 #include "sbf_get_dataset.F90"
@@ -65,6 +72,13 @@
 #define DATA_KIND sbf_byte
 
 
+#define ROUTINE_NAME get_sbf_Dataset_sbf_byte_0d
+#define DIMENSION 0
+#include "sbf_get_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSION
+
+
 #define ROUTINE_NAME get_sbf_Dataset_sbf_byte_1d
 #define DIMENSION 1
 #include "sbf_get_dataset.F90"
@@ -123,6 +137,13 @@
 #define DATA_KIND sbf_integer
 
 
+#define ROUTINE_NAME get_sbf_Dataset_sbf_integer_0d
+#define DIMENSION 0
+#include "sbf_get_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSION
+
+
 #define ROUTINE_NAME get_sbf_Dataset_sbf_integer_1d
 #define DIMENSION 1
 #include "sbf_get_dataset.F90"
@@ -179,6 +200,13 @@
 ! sbf sbf_long methods
 #define DATATYPE SBF_LONG
 #define DATA_KIND sbf_long
+
+
+#define ROUTINE_NAME get_sbf_Dataset_sbf_long_0d
+#define DIMENSION 0
+#include "sbf_get_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSION
 
 
 #define ROUTINE_NAME get_sbf_Dataset_sbf_long_1d
@@ -240,6 +268,11 @@
 #define DATATYPE SBF_FLOAT
 #define DATA_KIND sbf_float
 
+#define ROUTINE_NAME get_sbf_Dataset_sbf_float_0d
+#define DIMENSION 0
+#include "sbf_get_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSION
 
 #define ROUTINE_NAME get_sbf_Dataset_sbf_float_1d
 #define DIMENSION 1
@@ -297,6 +330,13 @@
 ! sbf sbf_double methods
 #define DATATYPE SBF_DOUBLE
 #define DATA_KIND sbf_double
+
+
+#define ROUTINE_NAME get_sbf_Dataset_sbf_double_0d
+#define DIMENSION 0
+#include "sbf_get_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSION
 
 
 #define ROUTINE_NAME get_sbf_Dataset_sbf_double_1d
@@ -359,6 +399,13 @@
 #define DATA_KIND sbf_float
 
 
+#define ROUTINE_NAME get_sbf_Dataset_cpx_sbf_float_0d
+#define DIMENSION 0
+#include "sbf_get_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSION
+
+
 #define ROUTINE_NAME get_sbf_Dataset_cpx_sbf_float_1d
 #define DIMENSION 1
 #include "sbf_get_dataset.F90"
@@ -415,6 +462,13 @@
 ! sbf sbf_double methods
 #define DATATYPE SBF_CDOUBLE
 #define DATA_KIND sbf_double
+
+
+#define ROUTINE_NAME get_sbf_Dataset_cpx_sbf_double_0d
+#define DIMENSION 0
+#include "sbf_get_dataset.F90"
+#undef ROUTINE_NAME
+#undef DIMENSION
 
 
 #define ROUTINE_NAME get_sbf_Dataset_cpx_sbf_double_1d

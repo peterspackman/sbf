@@ -1,4 +1,27 @@
-#if DIMENSION == 1
+#if DIMENSION == 0
+subroutine ROUTINE_NAME(this, name, data, errflag)
+    character(len=*), intent(in) :: name
+    class(sbf_File), intent(in) :: this
+    FORTRAN_KIND(DATA_KIND), intent(out) :: data
+    integer, intent(out), optional :: errflag
+    type(sbf_Dataset) :: dset
+    integer :: error = SBF_RESULT_SUCCESS, ind
+    ind = index_of_dataset_by_name(this,name)
+    if ((ind < 1) .or. (ind > this%n_datasets)) then
+        error = SBF_RESULT_DATASET_NOT_FOUND
+        if(present(errflag)) errflag = error
+        return
+    end if
+    dset = this%datasets(ind)
+    if (.not. sbf_dt_compatible(dset%header%data_type, c_sizeof(data))) then
+        error = SBF_RESULT_INCOMPATIBLE_DATA_TYPES
+        if(present(errflag)) errflag = error
+        return
+    endif
+    data = transfer(dset%data, mold=data)
+    if(present(errflag)) errflag = error
+end subroutine 
+#elif DIMENSION == 1
 subroutine ROUTINE_NAME(this, name, data, errflag)
     character(len=*), intent(in) :: name
     class(sbf_File), intent(in) :: this

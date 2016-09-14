@@ -4,6 +4,10 @@
 #define DATATYPE SBF_BYTE
 #define DATA_KIND sbf_char
 
+#define ROUTINE_NAME new_sbf_Dataset_sbf_char_0d
+#include "sbf_dataset_constructor.F90"
+#undef ROUTINE_NAME
+
 
 #define ROUTINE_NAME new_sbf_Dataset_sbf_char_1d
 #define DIMENSIONS :
@@ -63,6 +67,10 @@
 #define DATATYPE SBF_FLOAT
 #define DATA_KIND sbf_float
 
+#define ROUTINE_NAME new_sbf_Dataset_sbf_float_0d
+#include "sbf_dataset_constructor.F90"
+#undef ROUTINE_NAME
+
 
 #define ROUTINE_NAME new_sbf_Dataset_sbf_float_1d
 #define DIMENSIONS :
@@ -119,6 +127,10 @@
 ! sbf sbf_double methods
 #define DATATYPE SBF_DOUBLE
 #define DATA_KIND sbf_double
+
+#define ROUTINE_NAME new_sbf_Dataset_sbf_double_0d
+#include "sbf_dataset_constructor.F90"
+#undef ROUTINE_NAME
 
 
 #define ROUTINE_NAME new_sbf_Dataset_sbf_double_1d
@@ -179,6 +191,9 @@
 #define DATATYPE SBF_BYTE
 #define DATA_KIND sbf_byte
 
+#define ROUTINE_NAME new_sbf_Dataset_sbf_byte_0d
+#include "sbf_dataset_constructor.F90"
+#undef ROUTINE_NAME
 
 #define ROUTINE_NAME new_sbf_Dataset_sbf_byte_1d
 #define DIMENSIONS :
@@ -237,6 +252,10 @@
 #define DATA_KIND sbf_integer
 
 
+#define ROUTINE_NAME new_sbf_Dataset_sbf_integer_0d
+#include "sbf_dataset_constructor.F90"
+#undef ROUTINE_NAME
+
 #define ROUTINE_NAME new_sbf_Dataset_sbf_integer_1d
 #define DIMENSIONS :
 #include "sbf_dataset_constructor.F90"
@@ -293,6 +312,10 @@
 #define DATATYPE SBF_LONG
 #define DATA_KIND sbf_long
 
+
+#define ROUTINE_NAME new_sbf_Dataset_sbf_long_0d
+#include "sbf_dataset_constructor.F90"
+#undef ROUTINE_NAME
 
 #define ROUTINE_NAME new_sbf_Dataset_sbf_long_1d
 #define DIMENSIONS :
@@ -353,6 +376,10 @@
 #define DATA_KIND sbf_float
 
 
+#define ROUTINE_NAME new_sbf_Dataset_cpx_sbf_float_0d
+#include "sbf_dataset_constructor.F90"
+#undef ROUTINE_NAME
+
 #define ROUTINE_NAME new_sbf_Dataset_cpx_sbf_float_1d
 #define DIMENSIONS :
 #include "sbf_dataset_constructor.F90"
@@ -409,6 +436,10 @@
 #define DATATYPE SBF_CDOUBLE
 #define DATA_KIND sbf_double
 
+
+#define ROUTINE_NAME new_sbf_Dataset_cpx_sbf_double_0d
+#include "sbf_dataset_constructor.F90"
+#undef ROUTINE_NAME
 
 #define ROUTINE_NAME new_sbf_Dataset_cpx_sbf_double_1d
 #define DIMENSIONS :

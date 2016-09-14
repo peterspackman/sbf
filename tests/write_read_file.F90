@@ -13,6 +13,7 @@ program write_read_file
     complex(sbf_float), dimension(:,:), allocatable :: read_cdata
     integer(sbf_integer), dimension(:), allocatable :: read_data
     real(sbf_double), dimension(:,:,:,:,:,:), allocatable :: read_ddata
+    real(sbf_float) :: write_scalar = 5.25, read_scalar = 0
     character(len=100) :: char_array = "test string please ignore"
     character(len=:), allocatable :: string
     real :: start, finish
@@ -32,6 +33,9 @@ program write_read_file
     call data_file_write%add_dataset(dset)
     dset = sbf_Dataset("character_array_dataset", char_array)
     print *, "Adding character dataset"
+    call data_file_write%add_dataset(dset)
+    dset = sbf_Dataset("float scalar dataset", write_scalar)
+    print *, "Adding scalar dataset"
     call data_file_write%add_dataset(dset)
     call cpu_time(start)
     print *, "Writing file"
@@ -54,6 +58,7 @@ program write_read_file
     call data_file_read%get("integer_dataset", read_data, errflag)
     call data_file_read%get("double_dataset", read_ddata, errflag)
     call data_file_read%get("character_array_dataset", string, errflag)
+    call data_file_read%get("float scalar dataset", read_scalar, errflag)
     call cpu_time(finish)
     print '("Time = ",f6.3," seconds.")',finish-start
     print *, "Closing"
@@ -62,7 +67,8 @@ program write_read_file
         if(all(abs(data - read_data) == 0)) print *, "integer_dataset: all equal"
         if(all(abs(cdata - read_cdata) == 0)) print *, "complex_dataset: all equal"
         if(all(abs(ddata - read_ddata) == 0)) print *, "double_dataset: all equal"
-        print *, "string = ", string, "len = ", len(string)
+        if(string == char_array) print *, "strings: equal"
+        if( write_scalar == read_scalar) print *, "scalars: equal"
     else; print *, "There was an error reading the dataset: ", sbf_strerr(errflag)
     end if
 end program

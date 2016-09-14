@@ -135,8 +135,12 @@ type, public :: sbf_File
         get_sbf_Dataset_cpx_sbf_double_2d, get_sbf_Dataset_cpx_sbf_double_3d, &
         get_sbf_Dataset_cpx_sbf_double_4d, get_sbf_Dataset_cpx_sbf_double_5d, &
         get_sbf_Dataset_cpx_sbf_double_6d, get_sbf_Dataset_cpx_sbf_double_7d, &
-        get_sbf_Dataset_string
-
+        ! scalars
+        get_sbf_Dataset_string, get_sbf_Dataset_sbf_byte_0d, &
+        get_sbf_Dataset_sbf_integer_0d, get_sbf_Dataset_sbf_long_0d, &
+        get_sbf_Dataset_sbf_float_0d, get_sbf_Dataset_sbf_double_0d, &
+        get_sbf_Dataset_cpx_sbf_float_0d, get_sbf_Dataset_cpx_sbf_double_0d
+        
     procedure, private :: get_sbf_Dataset_sbf_char_1d, get_sbf_Dataset_sbf_char_2d, &
         get_sbf_Dataset_sbf_char_3d, get_sbf_Dataset_sbf_char_4d, &
         get_sbf_Dataset_sbf_char_5d, get_sbf_Dataset_sbf_char_6d, &
@@ -165,7 +169,11 @@ type, public :: sbf_File
         get_sbf_Dataset_cpx_sbf_double_2d, get_sbf_Dataset_cpx_sbf_double_3d, &
         get_sbf_Dataset_cpx_sbf_double_4d, get_sbf_Dataset_cpx_sbf_double_5d, &
         get_sbf_Dataset_cpx_sbf_double_6d, get_sbf_Dataset_cpx_sbf_double_7d, &
-        get_sbf_Dataset_string
+        ! scalars
+        get_sbf_Dataset_string, get_sbf_Dataset_sbf_byte_0d, &
+        get_sbf_Dataset_sbf_integer_0d, get_sbf_Dataset_sbf_long_0d, &
+        get_sbf_Dataset_sbf_float_0d, get_sbf_Dataset_sbf_double_0d, &
+        get_sbf_Dataset_cpx_sbf_float_0d, get_sbf_Dataset_cpx_sbf_double_0d 
 end type
 
 ! Interfaces
@@ -201,7 +209,11 @@ interface sbf_Dataset
     new_sbf_Dataset_sbf_double_1d, new_sbf_Dataset_sbf_double_2d, &
     new_sbf_Dataset_sbf_double_3d, new_sbf_Dataset_sbf_double_4d, &
     new_sbf_Dataset_sbf_double_5d, new_sbf_Dataset_sbf_double_6d, &
-    new_sbf_Dataset_sbf_double_7d, new_sbf_Dataset_string
+    new_sbf_Dataset_sbf_double_7d, new_sbf_Dataset_string, &
+    new_sbf_Dataset_sbf_byte_0d, new_sbf_Dataset_sbf_integer_0d, &
+    new_sbf_Dataset_sbf_long_0d, new_sbf_Dataset_sbf_float_0d, &
+    new_sbf_Dataset_sbf_double_0d, new_sbf_Dataset_cpx_sbf_float_0d, &
+    new_sbf_Dataset_cpx_sbf_double_0d
 end interface
 
 contains
