@@ -6,6 +6,9 @@ set(SBF_VERSION_MINOR_MINOR "1")
 
 # necessary to put sbf.mod into build directory
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR})
+if(NOT ${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
+    set(SBF_MODULE_DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY} PARENT_SCOPE)
+endif()
 
 enable_testing()
 add_subdirectory(${PROJECT_SOURCE_DIR}/include)

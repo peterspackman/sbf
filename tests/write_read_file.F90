@@ -22,9 +22,8 @@ program write_read_file
     print *, "Setting filename"
     data_file_write%filename = filename
     print *, "Creating dataset"
-    dset = sbf_Dataset("integer_dataset", data)
     print *, "Adding dataset"
-    call data_file_write%add_dataset(dset)
+    call data_file_write%add_dataset(sbf_Dataset("integer_dataset", data))
     dset = sbf_Dataset("complex_dataset", cdata)
     print *, "Adding complex dataset"
     call data_file_write%add_dataset(dset)
