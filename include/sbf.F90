@@ -457,9 +457,9 @@ subroutine read_sbf_file(this)
     class(sbf_File), intent(inout) :: this
     type(sbf_FileHeader) :: header
     integer :: i
-    logical :: is_open
+    logical :: is_open = .false.
 
-    inquire(this%filehandle, opened=is_open)
+    if(this%filehandle .ne. -1) inquire(this%filehandle, opened=is_open)
     if(.not. is_open) then
         call this%open(mode=sbf_readonly)
     end if
