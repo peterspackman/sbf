@@ -69,6 +69,7 @@ subroutine ROUTINE_NAME(this, name, data, errflag)
     endif
     allocate(data(dset%header%shape(1), dset%header%shape(2)))
     data = reshape(transfer(dset%data, mold=data), dset%header%shape(:DIMENSION))
+    if(present(errflag)) errflag = error
 end subroutine 
 #elif DIMENSION == 3
 subroutine ROUTINE_NAME(this, name, data, errflag)
@@ -93,6 +94,7 @@ subroutine ROUTINE_NAME(this, name, data, errflag)
     endif
     allocate(data(dset%header%shape(1), dset%header%shape(2), dset%header%shape(3)))
     data = reshape(transfer(dset%data, mold=data), dset%header%shape(:DIMENSION))
+    if(present(errflag)) errflag = error
 end subroutine 
 #elif DIMENSION == 4
 subroutine ROUTINE_NAME(this, name, data, errflag)
@@ -118,6 +120,7 @@ subroutine ROUTINE_NAME(this, name, data, errflag)
     allocate(data(dset%header%shape(1), dset%header%shape(2), dset%header%shape(3), &
                   dset%header%shape(4)))
     data = reshape(transfer(dset%data, mold=data), dset%header%shape(:DIMENSION))
+    if(present(errflag)) errflag = error
 end subroutine 
 #elif DIMENSION == 5
 subroutine ROUTINE_NAME(this, name, data, errflag)
@@ -143,6 +146,7 @@ subroutine ROUTINE_NAME(this, name, data, errflag)
     allocate(data(dset%header%shape(1), dset%header%shape(2), dset%header%shape(3), &
                   dset%header%shape(4), dset%header%shape(5)))
     data = reshape(transfer(dset%data, mold=data), dset%header%shape(:DIMENSION))
+    if(present(errflag)) errflag = error
 end subroutine 
 #elif DIMENSION == 6
 subroutine ROUTINE_NAME(this, name, data, errflag)
@@ -168,6 +172,7 @@ subroutine ROUTINE_NAME(this, name, data, errflag)
     allocate(data(dset%header%shape(1), dset%header%shape(2), dset%header%shape(3), &
                   dset%header%shape(4), dset%header%shape(5), dset%header%shape(6)))
     data = reshape(transfer(dset%data, mold=data), dset%header%shape(:DIMENSION))
+    if(present(errflag)) errflag = error
 end subroutine 
 #elif DIMENSION == 7
 subroutine ROUTINE_NAME(this, name, data, errflag)
@@ -194,5 +199,6 @@ subroutine ROUTINE_NAME(this, name, data, errflag)
                   dset%header%shape(4), dset%header%shape(5), dset%header%shape(6), &
                   dset%header%shape(7)))
     data = reshape(transfer(dset%data, mold=data), dset%header%shape(:DIMENSION))
+    if(present(errflag)) errflag = error
 end subroutine 
 #endif

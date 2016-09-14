@@ -31,7 +31,7 @@ program write_read_file
     dset = sbf_Dataset("double_dataset", ddata)
     print *, "Adding double dataset"
     call data_file_write%add_dataset(dset)
-    dset = sbf_Dataset("character_array_dataset", char_array)
+    dset = sbf_Dataset("string_dataset", char_array)
     print *, "Adding character dataset"
     call data_file_write%add_dataset(dset)
     dset = sbf_Dataset("float scalar dataset", write_scalar)
@@ -54,21 +54,59 @@ program write_read_file
     print '("Time = ",f6.3," seconds.")',finish-start
     print *, "Getting datasets"
     call cpu_time(start)
+
     call data_file_read%get("complex_dataset", read_cdata, errflag)
+    if (errflag .ne. 1) then
+        print *, "There was an error reading the complex_dataset: ", sbf_strerr(errflag)
+        call exit(1)
+    endif
+
     call data_file_read%get("integer_dataset", read_data, errflag)
+    if (errflag .ne. 1) then
+        print *, "There was an error reading the integer_dataset: ", sbf_strerr(errflag)
+        call exit(1)
+    endif
+
     call data_file_read%get("double_dataset", read_ddata, errflag)
-    call data_file_read%get("character_array_dataset", string, errflag)
+    if (errflag .ne. 1) then
+        print *, "There was an error reading the double_dataset: ", sbf_strerr(errflag)
+        call exit(1)
+    endif
+
+    call data_file_read%get("string_dataset", string, errflag)
+    if (errflag .ne. 1) then
+        print *, "There was an error reading the string_dataset: ", sbf_strerr(errflag)
+        call exit(1)
+    endif
+   
     call data_file_read%get("float scalar dataset", read_scalar, errflag)
+    if (errflag .ne. 1) then
+        print *, "There was an error reading the scalar dataset: ", sbf_strerr(errflag)
+        call exit(1)
+    endif
     call cpu_time(finish)
     print '("Time = ",f6.3," seconds.")',finish-start
-    print *, "Closing"
+
+    print *, "Closing file"
     call data_file_read%close
-    if (errflag == 1) then
-        if(all(abs(data - read_data) == 0)) print *, "integer_dataset: all equal"
-        if(all(abs(cdata - read_cdata) == 0)) print *, "complex_dataset: all equal"
-        if(all(abs(ddata - read_ddata) == 0)) print *, "double_dataset: all equal"
-        if(string == char_array) print *, "strings: equal"
-        if( write_scalar == read_scalar) print *, "scalars: equal"
-    else; print *, "There was an error reading the dataset: ", sbf_strerr(errflag)
+    if(.not. (all(abs(data - read_data) == 0))) then
+        print *, "integer_dataset: not all are equal"
+        call exit(1)
+    endif
+    if(.not. (all(abs(cdata - read_cdata) == 0))) then
+        print *, "complex_dataset: not all are equal"
+        call exit(1)
+    endif
+    if(.not. (all(abs(ddata - read_ddata) == 0))) then
+        print *, "double_dataset: not all are equal"
+        call exit(1)
+    endif
+    if(.not. (string == char_array)) then
+        print *, "strings dataset: not equal"
+        call exit(1)
+    end if
+    if(.not. (write_scalar == read_scalar)) then
+        print *, "scalar dataset: not equal"
+        call exit(1)
     end if
 end program
