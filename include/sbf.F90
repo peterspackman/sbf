@@ -99,7 +99,7 @@ type, public :: sbf_File
     !!!                                 matching `name`. 
     integer(sbf_byte) :: mode = sbf_readonly
     character(len=256) :: filename = "out.sbf"
-    integer :: filehandle = 11
+    integer :: filehandle = -1
     integer(sbf_byte) :: n_datasets = 0
     type(sbf_Dataset), dimension(SBF_MAX_DATASETS) :: datasets
     contains
@@ -403,11 +403,11 @@ subroutine open_sbf_file(this, mode)
     ! check if the file exists
     inquire(file=this%filename, exist=file_exists)
     if (.not. file_exists) then
-        open(unit=this%filehandle, file=this%filename, &
+        open(newunit=this%filehandle, file=this%filename, &
              status="new", access="stream", &
              action=action, form="unformatted")
     else
-        open(unit=this%filehandle, file=this%filename, &
+        open(newunit=this%filehandle, file=this%filename, &
              status="old", access="stream", &
              action=action, form="unformatted")
     end if
@@ -417,21 +417,23 @@ subroutine close_sbf_file(this)
     class(sbf_File), intent(inout) :: this
     logical :: is_open
     ! check that the file is open
-    inquire(this%filehandle, opened=is_open)
-    ! if so: close it
-    if(is_open) then
-        close(this%filehandle)
-    end if
+    if(this%filehandle .ne. -1) then
+        inquire(this%filehandle, opened=is_open)
+        ! if so: close it
+        if(is_open) then
+            close(this%filehandle)
+        end if
+    endif
 end subroutine
 
 subroutine write_sbf_file(this)
     class(sbf_File), intent(inout) :: this
     integer :: i
     type(sbf_FileHeader) :: header
-    logical :: is_open
+    logical :: is_open = .false.
 
     ! check whether the file is already open, if not: open it
-    inquire(this%filehandle, opened=is_open)
+    if(this%filehandle .ne. -1) inquire(this%filehandle, opened=is_open)
     if(.not. is_open) then
         call this%open(mode=sbf_writeonly)
     end if
