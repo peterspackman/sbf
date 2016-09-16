@@ -216,7 +216,17 @@ interface sbf_Dataset
     new_sbf_Dataset_cpx_sbf_double_0d
 end interface
 
+interface sbf_File
+   module procedure new_sbf_File_from_string
+end interface
+
 contains
+
+function new_sbf_File_from_string(name) result(res)
+   character(len=*) :: name
+   type(sbf_File) :: res
+   res%filename = name
+end function
 
 ! This is the 'fun' way we get to do 'generics' in 
 ! fortran without writing the same code again and again
