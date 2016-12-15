@@ -41,6 +41,7 @@ typedef std::array<sbf_character, limits::name_length> sbf_string;
 std::string as_string(sbf_string sbf_str) {
     std::string str;
     std::copy_n(begin(sbf_str), sbf_str.size(), std::back_inserter(str));
+    str.erase(str.find('\0'));
     return str;
 }
 

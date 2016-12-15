@@ -75,7 +75,9 @@ type, public :: sbf_Dataset
     character(len=1, kind=sbf_char), dimension(:), allocatable :: data
     type(sbf_DataHeader) :: header
     contains
-    procedure :: serialize => write_dataset, deserialize => read_dataset
+    procedure :: serialize_header => write_dataset_header, &
+                 serialize_data => write_dataset_data, &
+                 deserialize_header => read_dataset_header
 end type
 
 type, public :: sbf_File
@@ -333,21 +335,34 @@ subroutine sbf_dh_set_dims(this, dims)
     this%flags = ior(this%flags, iand(dims, SBF_DIMENSION_BITS))
 end subroutine
 
-subroutine write_dataset(this, unit)
+subroutine write_dataset_header(this, unit)
     class(sbf_Dataset), intent(in) :: this
     integer :: unit
     ! placeholder wrapper in case we want to change behaviour in the future
     write(unit) this%header
+end subroutine
+
+subroutine write_dataset_data(this, unit)
+    class(sbf_Dataset), intent(in) :: this
+    integer :: unit
+    ! placeholder wrapper in case we want to change behaviour in the future
     write(unit) this%data
 end subroutine
 
-subroutine read_dataset(this, unit)
+
+subroutine read_dataset_header(this, unit)
+    class(sbf_Dataset), intent(inout) :: this
+    integer :: unit, i
+    ! placeholder wrapper in case we want to change behaviour in the future
+    read(unit) this%header
+end subroutine
+
+subroutine read_dataset_data(this, unit)
     class(sbf_Dataset), intent(inout) :: this
     integer :: unit, i
     integer(sbf_byte) :: dims
     integer(sbf_size) :: n_bytes
     ! placeholder wrapper in case we want to change behaviour in the future
-    read(unit) this%header
     n_bytes = sbf_dt_size(this%header%data_type)
     call sbf_dh_get_dims(this%header, dims)
     do i = 1, dims
@@ -456,7 +471,11 @@ subroutine write_sbf_file(this)
 
     ! write all the datasets
     do i = 1, this%n_datasets
-        call this%datasets(i)%serialize(this%filehandle)
+        call this%datasets(i)%serialize_header(this%filehandle)
+    end do
+
+    do i = 1, this%n_datasets
+        call this%datasets(i)%serialize_data(this%filehandle)
     end do
 
     ! close the file
@@ -477,7 +496,11 @@ subroutine read_sbf_file(this)
     read(this%filehandle) header
     this%n_datasets = header%n_datasets
     do i = 1, this%n_datasets
-        call this%datasets(i)%deserialize(this%filehandle)
+        call this%datasets(i)%deserialize_header(this%filehandle)
+    end do
+
+    do i = 1, this%n_datasets
+        call this%datasets(i)%deserialize_data(this%filehandle)
     end do
 
     call this%close

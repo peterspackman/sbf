@@ -101,6 +101,17 @@ class File {
         return datasets.size();
     }
 
+    const std::deque<Dataset> get_datasets() {
+        return datasets;
+    }
+
+    const Dataset get_dataset(std::string name) {
+        for(const auto d: datasets) {
+            if(d.name() == name) return d;
+        }
+        return Dataset();
+    }
+
   private:
     std::fstream file_stream;
     AccessMode accessmode;
