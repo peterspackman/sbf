@@ -77,7 +77,8 @@ type, public :: sbf_Dataset
     contains
     procedure :: serialize_header => write_dataset_header, &
                  serialize_data => write_dataset_data, &
-                 deserialize_header => read_dataset_header
+                 deserialize_header => read_dataset_header, &
+                 deserialize_data => read_dataset_header
 end type
 
 type, public :: sbf_File
