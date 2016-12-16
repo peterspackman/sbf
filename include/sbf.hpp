@@ -88,6 +88,16 @@ class File {
         return success;
     }
 
+    ResultType read_datablocks() {
+        for (Dataset& dset: datasets) {
+            char * data = new char[dset.size()];
+            file_stream.read(data, dset.size());
+            dset._data = reinterpret_cast<void *>(data);
+        }
+        return success;
+    }
+
+
     const ResultType add_dataset(const Dataset& dset) {
         datasets.push_back(dset);
         return success;

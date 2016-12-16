@@ -4,6 +4,7 @@
 #include <vector>
 
 namespace sbf {
+class File;
 /*
  * File header container structure
  *
@@ -54,6 +55,7 @@ std::istream &operator>>(std::istream &is, FileHeader &f) {
  * - dimensions of the dataset
  */
 class Dataset {
+  friend class File;
   public:
     Dataset() {
     }
@@ -107,6 +109,19 @@ class Dataset {
 
     const sbf_dimensions get_shape() const {
         return _shape;
+    }
+
+    const std::vector<sbf_size> get_shape_vector() const {
+        return std::vector<sbf_size>(_shape.data(), _shape.data() + _shape.size());
+    }
+
+    const void * data() const {
+        return _data;
+    }
+
+    template<typename T>
+    T * data_as() const {
+        return reinterpret_cast<T*>(_data);
     }
 
     /*
