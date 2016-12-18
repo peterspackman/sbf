@@ -78,7 +78,7 @@ type, public :: sbf_Dataset
     procedure :: serialize_header => write_dataset_header, &
                  serialize_data => write_dataset_data, &
                  deserialize_header => read_dataset_header, &
-                 deserialize_data => read_dataset_header
+                 deserialize_data => read_dataset_data
 end type
 
 type, public :: sbf_File
@@ -499,7 +499,6 @@ subroutine read_sbf_file(this)
     do i = 1, this%n_datasets
         call this%datasets(i)%deserialize_header(this%filehandle)
     end do
-
     do i = 1, this%n_datasets
         call this%datasets(i)%deserialize_data(this%filehandle)
     end do
