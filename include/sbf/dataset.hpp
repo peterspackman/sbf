@@ -90,6 +90,10 @@ class Dataset {
         return !is_big_endian();
     }
 
+    inline const bool is_empty() const {
+        return get_dimensions() == 0;
+    }
+
     /* Extract number of dimensions from 'flags'?*/
     inline const sbf_byte get_dimensions() const {
         return (_flags & flags::dimension_bits);
