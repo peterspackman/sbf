@@ -88,6 +88,16 @@ class File {
         return success;
     }
 
+    ResultType read_datablocks() {
+        for (Dataset& dset: datasets) {
+            char * data = new char[dset.size()];
+            file_stream.read(data, dset.size());
+            dset._data = reinterpret_cast<void *>(data);
+        }
+        return success;
+    }
+
+
     const ResultType add_dataset(const Dataset& dset) {
         datasets.push_back(dset);
         return success;
@@ -99,6 +109,17 @@ class File {
 
     const std::size_t n_datasets() const{
         return datasets.size();
+    }
+
+    const std::deque<Dataset> get_datasets() {
+        return datasets;
+    }
+
+    const Dataset get_dataset(std::string name) {
+        for(const auto d: datasets) {
+            if(d.name() == name) return d;
+        }
+        return Dataset();
     }
 
   private:
