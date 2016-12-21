@@ -66,7 +66,7 @@ end type
 
 type, public, bind(C) :: sbf_DataHeader
     character(sbf_char), dimension(SBF_NAME_LENGTH) :: name = char(0)
-    integer(sbf_byte) :: flags = 0
+    integer(sbf_byte) :: flags = SBF_COLUMN_MAJOR
     integer(sbf_data_type) :: data_type = 0
     integer(sbf_size), dimension(SBF_MAX_DIM) :: shape = 0
 end type

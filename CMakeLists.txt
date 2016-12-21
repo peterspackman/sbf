@@ -9,6 +9,9 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR})
 if(NOT ${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
     set(SBF_MODULE_DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY} PARENT_SCOPE)
     set(SBF_INCLUDE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include PARENT_SCOPE)
+else()
+    #TODO set ctest configuration type to include tests
+    # can do manually with ctest -C WITH_SBF_TESTS 
 endif()
 
 enable_testing()

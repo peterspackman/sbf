@@ -22,12 +22,13 @@ TEST_CASE("Write to file", "[io, headers]") {
         ints[i] = i * i;
     }
     REQUIRE(file.open() == sbf::success);
-    sbf::sbf_dimensions shape;
+    sbf::sbf_dimensions shape{0};
     shape[0] = 1000;
     sbf::Dataset dset("integer_dataset", shape, sbf::SBF_INT, reinterpret_cast<void *>(ints));
     REQUIRE(file.add_dataset(dset) == sbf::success);
     REQUIRE(file.n_datasets() == 1);
     REQUIRE(file.write_headers() == sbf::success);
+    REQUIRE(file.write_datablocks() == sbf::success);
     REQUIRE(file.close() == sbf::success);
 }
 

@@ -68,7 +68,11 @@ class Dataset {
             const sbf_byte flags = flags::default_flags) {
         _data = data;
         _name = as_sbf_string(name_string);
+        _flags = flags;
         std::copy(begin(shape), end(shape), begin(_shape));
+        sbf_byte dims = 0;
+        for(dims = 0; (dims < _shape.size()) && (_shape[dims]); dims++){};
+        set_dimensions(dims);
         _type = type;
     }
 

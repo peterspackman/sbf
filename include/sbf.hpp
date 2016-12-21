@@ -69,6 +69,15 @@ class File {
         return res;
     }
 
+    ResultType write_datablocks() {
+        for (Dataset& dset: datasets) {
+            file_stream.write(reinterpret_cast<const char *>(dset.data()), dset.size());
+        }
+        return success;
+    }
+
+
+
     ResultType read_headers() {
         FileHeader file_header;
         file_stream >> file_header;

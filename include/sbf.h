@@ -44,10 +44,10 @@
 #define SBF_CHECK_BIG_ENDIAN_FLAG(data_header)                                 \
     (data_header.flags & SBF_BIG_ENDIAN)
 
-#define SBF_CHECK_ROW_MAJOR_FLAG(data_header)                                  \
-    (data_header.flags & SBF_ROW_MAJOR)
+#define SBF_CHECK_COLUMN_MAJOR_FLAG(data_header)                                  \
+    (data_header.flags & SBF_COLUMN_MAJOR)
 
-#define SBF_SET_ROW_MAJOR_FLAG(data_header) (data_header.flags |= SBF_ROW_MAJOR)
+#define SBF_SET_COLUMN_MAJOR_FLAG(data_header) (data_header.flags |= SBF_COLUMN_MAJOR)
 
 #define SBF_PERROR(...) fprintf(stderr, __VA_ARGS__)
 
@@ -227,8 +227,11 @@ sbf_result sbf_add_dataset(sbf_File *sbf, const char *name, sbf_data_type type,
     sbf_DataHeader header = sbf_new_data_header;
     header.data_type = type;
     strncpy(header.name, name, SBF_NAME_LENGTH);
-    for (int_fast32_t i = 0; i < SBF_MAX_DIM; ++i)
-        header.shape[i] = shape[i];
+    int_fast32_t dimensions;
+    for (dimensions = 0; (dimensions < SBF_MAX_DIM) && (shape[dimensions != 0]); ++dimensions)
+        header.shape[dimensions] = shape[dimensions];
+    header.flags = 0b00000000;
+    SBF_SET_DIMENSIONS(header, dimensions);
     sbf->datasets[sbf->n_datasets] = header;
     sbf->dataset_pointers[sbf->n_datasets] = data;
     sbf->n_datasets++;
