@@ -9,16 +9,17 @@ program write_read_file
     character(sbf_byte), dimension(:), allocatable :: bytes
     integer(sbf_integer), dimension(1000) :: data = [(i*i, i=0,999)]
     complex(sbf_float), dimension(100,100) :: cdata = reshape([(i*i, i = 0,9999)], [100, 100])
-    real(sbf_double), dimension(10,10,10,10,10,10) :: ddata 
+    real(sbf_double), dimension(10,10) :: ddata = reshape([(i*i, i=1,100)], [10,10])
+    real(sbf_float), dimension(5,5,5) :: fdata = reshape([(i, i=1,125)], [5,5,5])
     complex(sbf_float), dimension(:,:), allocatable :: read_cdata
     integer(sbf_integer), dimension(:), allocatable :: read_data
-    real(sbf_double), dimension(:,:,:,:,:,:), allocatable :: read_ddata
+    real(sbf_double), dimension(:,:), allocatable :: read_ddata
+    real(sbf_float), dimension(:,:,:), allocatable :: read_fdata
     real(sbf_float) :: write_scalar = 5.25, read_scalar = 0
     character(len=100) :: char_array = "test string please ignore"
     character(len=:), allocatable :: string
     real :: start, finish
     integer :: errflag
-    ddata = 3.14159
     print *, "Setting filename"
     data_file_write%filename = filename
     print *, "Creating dataset"
@@ -29,6 +30,9 @@ program write_read_file
     call data_file_write%add_dataset(dset)
     dset = sbf_Dataset("double_dataset", ddata)
     print *, "Adding double dataset"
+    call data_file_write%add_dataset(dset)
+    dset = sbf_Dataset("float_dataset", fdata)
+    print *, "Adding float dataset"
     call data_file_write%add_dataset(dset)
     dset = sbf_Dataset("string_dataset", char_array)
     print *, "Adding character dataset"
@@ -72,6 +76,12 @@ program write_read_file
         call exit(1)
     endif
 
+    call data_file_read%get("float_dataset", read_fdata, errflag)
+    if (errflag .ne. 1) then
+        print *, "There was an error reading the float_dataset: ", sbf_strerr(errflag)
+        call exit(1)
+    endif
+
     call data_file_read%get("string_dataset", string, errflag)
     if (errflag .ne. 1) then
         print *, "There was an error reading the string_dataset: ", sbf_strerr(errflag)
@@ -100,6 +110,11 @@ program write_read_file
         print *, "double_dataset: not all are equal"
         call exit(1)
     endif
+    if(.not. (all(abs(fdata - read_fdata) == 0))) then
+        print *, "float_dataset: not all are equal"
+        call exit(1)
+    endif
+
     if(.not. (string == char_array)) then
         print *, "strings dataset: not equal"
         call exit(1)
