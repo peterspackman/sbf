@@ -20,7 +20,7 @@
 enum log_level {
     error = 0, warning = 1, info = 2, debug = 3
 };
-enum log_level GLOBAL_LOG_LEVEL = debug;
+enum log_level GLOBAL_LOG_LEVEL = info;
 
 #define log(level, message, ...) \
     do {                                        \
@@ -43,8 +43,15 @@ enum log_level GLOBAL_LOG_LEVEL = debug;
 
 const char *test_filename = "/tmp/sbf_test_c.sbf";
 
-void usage() {
-    log(info, "Usage as:\n\t%s [-d] filenames...\n", "sbftool");
+void usage(const char * progname) {
+    fprintf(stdout, "%s [-dl] filename\n\n", progname);
+    fprintf(stdout, "Options:\n");
+    fprintf(stdout, "\t-l\tList all datasets in file.\n");
+    fprintf(stdout, "\t-d\tspecify of all datasets in file.\n");
+    fprintf(stdout, "\t-c\tCompare contents of two sbf file. (UNIMPLEMENTED)\n");
+    fprintf(stdout, "\t-h\tPrint this help message.\n");
+    fprintf(stdout, "\n");
+
     exit(EXIT_SUCCESS);
 }
 
@@ -94,8 +101,7 @@ void pretty_print_1d(void *data, const char *fmt_string, sbf_size stride,
     if(dtype == SBF_BYTE) 
         suffix="";
 
-    for(sbf_size i = 0; i < n; ++i) {
-        offset = i * stride;
+    for(ptrdiff_t offset = 0; offset != n * stride; offset = offset + stride) {
         switch(dtype) {
             case(SBF_INT):
                 fprintf(stdout, fmt_string, "", *(int *)(data + offset), suffix);
@@ -120,7 +126,8 @@ void pretty_print_1d(void *data, const char *fmt_string, sbf_size stride,
 void pretty_print_2d(void *data, const char *fmt_string, sbf_size rows, sbf_size cols,
                     sbf_size block_size, sbf_data_type dtype, uint_fast8_t column_major) {
     ptrdiff_t column_stride = block_size, row_stride = block_size * cols, stride = 0;
-    if(column_major) {
+
+    if(!column_major) {
         stride = column_stride; column_stride = row_stride; row_stride = stride;
     }
     // print out row by row
@@ -137,22 +144,21 @@ void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_s
     sbf_byte dims = SBF_GET_DIMENSIONS(dset);
     uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
     int i = 0, j = 1;
-    if(column_major) i = dims - 2, j = dims - 1;
     if(dims == 1) {
         pretty_print_1d(data, fmt_string, stride, num_blocks, block_size, dset.data_type, 1);
     }
     else if(dims == 2) {
-        sbf_size cols = dset.shape[column_major ? i : j];
-        sbf_size rows = dset.shape[column_major ? j : i];
+        sbf_size cols = dset.shape[column_major ? 0 : 1];
+        sbf_size rows = dset.shape[column_major ? 1 : 0];
         pretty_print_2d(data, fmt_string, rows, cols, block_size, dset.data_type, column_major);
     }
     else {
-        sbf_size cols = dset.shape[column_major ? i : j];
-        sbf_size rows = dset.shape[column_major ? j : i];
+        sbf_size cols = dset.shape[column_major ? 0 : 1];
+        sbf_size rows = dset.shape[column_major ? 1 : 0];
         if(!column_major) {
              for(int k = dims-1; k > j; k--) {
                 sbf_size k_dim = dset.shape[k];
-                log(debug, "k_dim = %llu\n", k_dim);
+                log(debug, "k_dim = %llu, i = %d, j = %d, k=%d\n", k_dim, i, j, k);
                 for(int l = 0; l < k_dim; l++) {
                     fprintf(stdout, "[%d][:][:]\n", l);
                     ptrdiff_t offset = rows * cols * block_size * l;
@@ -163,9 +169,16 @@ void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_s
         else {
             for(int k = 0; k < i; k++) {
                 sbf_size k_dim = dset.shape[k];
-                log(debug, "k_dim = %llu\n", k_dim);
+                log(debug, "k_dim = %llu, i = %d, j = %d, k=%d\n", k_dim, i, j, k);
                 for(int l = 0; l < k_dim; l++) {
-                    fprintf(stdout, "[%d][:][:]\n", l);
+                    for(int idx=0; idx < dims; idx++) {
+                        if (idx == i || idx == j)
+                                fprintf(stdout, "[:]");
+                        else if (idx == k)
+                                fprintf(stdout, "[%d]",l);
+                        else fprintf(stdout, "[?]");
+                    }
+                    fprintf(stdout, "\n");
                     ptrdiff_t offset = rows * cols * block_size * l;
                     pretty_print_2d(data + offset, fmt_string, rows, cols, block_size, dset.data_type, column_major);
                 }
@@ -176,23 +189,25 @@ void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_s
 }
 
 void dump_file_as_utf8(sbf_File * file, uint_fast8_t dump_all_data) {
-    fprintf(stdout, "Contents of %s\n", file->filename);
+    fprintf(stdout, "---- %s ----\n", file->filename);
+    //TODO add version checking
     fprintf(stdout, "sbf %s\n", "v0.1.1");
     for(int i = 0; i < file->n_datasets; i++) {
+
         sbf_DataHeader dset = file->datasets[i];
-        fprintf(stdout, "dataset\t\t\t'%s'\ntype|bytes|width \t%s|%llu|%llubit\n",
+        fprintf(stdout, "dataset:\t\t'%s'\ntype|bytes|width:\t%s|%llu|%llubit\n",
                 dset.name, sbf_datatype_name(dset.data_type), sbf_datatype_size(dset), sbf_datatype_size(dset)*8);
-        fprintf(stdout, "flags\t\t\t"BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(dset.flags));
+        fprintf(stdout, "flags:\t\t\t"BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(dset.flags));
         uint_fast8_t dims = SBF_GET_DIMENSIONS(dset);
-        fprintf(stdout, "n dimensions\t\t%d\n", dims);
-        fprintf(stdout, "shape\t\t\t");
+        fprintf(stdout, "dimensions:\t\t%d\n", dims);
+        fprintf(stdout, "shape:\t\t\t");
         fprintf(stdout, "[%llu", dset.shape[0]);
         for(uint_fast8_t dim = 1; dim < dims; dim++) {
             fprintf(stdout, ", %llu", dset.shape[dim]);
         }
         fprintf(stdout, "]\n");
         uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
-        if(column_major) fprintf(stdout, "column major\n");
+        fprintf(stdout, "column major:\t\t%s\n", column_major ? "true": "false");
         if(dump_all_data) {
             sbf_size data_size = sbf_datatype_size(dset) * sbf_num_blocks(dset);
             uint8_t data[data_size];
@@ -200,8 +215,9 @@ void dump_file_as_utf8(sbf_File * file, uint_fast8_t dump_all_data) {
             if(res != SBF_RESULT_SUCCESS) {
                 log(error, "Problem reading dataset %s: %s\n", dset.name, strerror(errno));
             }
-            fprintf(stdout, "Data:\n");
+            fprintf(stdout, "{\n");
             pretty_print_data(dset, (void *) data, format_string(dset.data_type));
+            fprintf(stdout, "}\n");
         }
         fprintf(stdout, "\n");
     }
@@ -214,7 +230,7 @@ int main(int argc, char *argv[]) {
     int c;
 
     opterr = 0;
-    while ((c = getopt (argc, argv, "dlh:")) != -1)
+    while ((c = getopt (argc, argv, "cdlh")) != -1)
         switch (c)
         {
             case 'd':
@@ -224,17 +240,22 @@ int main(int argc, char *argv[]) {
                 list_datasets = 1;
                 break;
             case 'h':
-                usage();
+                usage(argv[0]);
                 break;
+            case '?':
+                fprintf(stderr, "Unrecognised argument.\nTry %s -h for more information.\n", argv[0]);
             default:
-                abort ();
+                exit(EXIT_FAILURE);
         }
-    log(debug, "dump_file = %d\n", dump_file);
+    log(debug, "flags:\n\tdump_file: %s\n\tlist_datasets: %s\n",
+        dump_file ? "true":"false", list_datasets ? "true":"false");
+
     if(optind == argc) {
         log(error, "Expecting a filename e.g.: %s\n", "file.sbf");
-        usage();
+        usage(argv[0]);
     }
 
+    // try to read all of the remaining arguments as sbf files
     for (int index = optind; index < argc; index++) {
         char * filename = argv[index];
         sbf_File file = sbf_new_file;

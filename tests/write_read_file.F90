@@ -9,11 +9,11 @@ program write_read_file
     character(sbf_byte), dimension(:), allocatable :: bytes
     integer(sbf_integer), dimension(1000) :: data = [(i*i, i=0,999)]
     complex(sbf_float), dimension(100,100) :: cdata = reshape([(i*i, i = 0,9999)], [100, 100])
-    real(sbf_double), dimension(10,10) :: ddata = reshape([(i*i, i=1,100)], [10,10])
+    real(sbf_double), dimension(4,4,4,4) :: ddata = reshape([(i*i, i=1,256)], [4,4,4,4])
     real(sbf_float), dimension(5,5,5) :: fdata = reshape([(i, i=1,125)], [5,5,5])
     complex(sbf_float), dimension(:,:), allocatable :: read_cdata
     integer(sbf_integer), dimension(:), allocatable :: read_data
-    real(sbf_double), dimension(:,:), allocatable :: read_ddata
+    real(sbf_double), dimension(:,:,:,:), allocatable :: read_ddata
     real(sbf_float), dimension(:,:,:), allocatable :: read_fdata
     real(sbf_float) :: write_scalar = 5.25, read_scalar = 0
     character(len=100) :: char_array = "test string please ignore"
