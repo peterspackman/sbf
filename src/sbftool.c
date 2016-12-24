@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include "sbf.h"
 #include <unistd.h>
+#include <complex.h>
+#include <stdarg.h>
 #include <ctype.h>
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
@@ -55,6 +57,46 @@ void usage(const char * progname) {
     exit(EXIT_SUCCESS);
 }
 
+ptrdiff_t offset_of(sbf_size block_size, uint_fast8_t column_major, int dims, ...) {
+    va_list ap;
+    ptrdiff_t offset = 0;
+    int idx[dims];
+    int shape[dims];
+    va_start(ap, dims);
+    printf("dims = %d\n[", dims);
+    for(int i = 0; i < dims; i++) {
+        shape[i] = va_arg(ap, int);
+        printf(" %d", shape[i]);
+    }
+    printf(" ]\n[");
+    for(int i = 0; i < dims; i++) {
+        idx[i] = va_arg(ap, int);
+        printf(" %d", idx[i]);
+    }
+    printf(" ]\n");
+    va_end(ap);
+
+    if(column_major) {
+        for(int i = 0; i < dims; i++) {
+            int product = 1;
+            for(int j = 0; j < i; j++) {
+                product = product * shape[j];
+            }
+            offset = offset + product * idx[i];
+        }
+    }
+    else {
+        for(int i = 0; i < dims; i++) {
+            int product = 1;
+            for(int j = i + 1; j < dims; j++) {
+                product = product * shape[j];
+            }
+            offset = offset + product * idx[i];
+        }
+
+    }
+    return offset * block_size;
+}
 
 const char * sbf_datatype_name(sbf_byte data_type) {
     switch(data_type) {
@@ -85,6 +127,10 @@ const char * format_string(sbf_byte data_type) {
             return "%s% li%s";
         case SBF_FLOAT:
             return "%s% 10.3g%s";
+        case SBF_CFLOAT:
+            return "%s% 5.2f%+5.2fi";
+        case SBF_CDOUBLE:
+            return "%s% 5.2f%+5.2fi";
         default:
             return "%s%c%s";
     }
@@ -114,6 +160,16 @@ void pretty_print_1d(void *data, const char *fmt_string, sbf_size stride,
                 break;
             case(SBF_FLOAT):
                 fprintf(stdout, fmt_string, "", *(float *)(data + offset), suffix);
+                break;
+            case(SBF_CFLOAT):
+                fprintf(stdout, fmt_string, "", *(float *)(data + offset), 
+                                                *(float *)(data + offset + sizeof(float)), 
+                                                suffix);
+                break;
+            case(SBF_CDOUBLE):
+                fprintf(stdout, fmt_string, "", *(double *)(data + offset), 
+                                                *(double *)(data + offset + sizeof(double)), 
+                                                suffix);
                 break;
             default:
                 fprintf(stdout, fmt_string, "",*(char *)(data + offset), suffix);
@@ -250,6 +306,10 @@ int main(int argc, char *argv[]) {
     log(debug, "flags:\n\tdump_file: %s\n\tlist_datasets: %s\n",
         dump_file ? "true":"false", list_datasets ? "true":"false");
 
+//    printf("Offset of column major int[1,0,0] = %li\n", offset_of(4, 1, 3, 5,5,5, 1, 0, 0));
+ //   printf("Offset of row major int[1,0,0] = %li\n", offset_of(4, 0, 3, 5,5,5, 1, 0, 0));
+  //  printf("Offset of column major int[1,1,0] = %li\n", offset_of(4, 1, 3, 5,5,5, 1, 1, 0));
+   // printf("Offset of row major int[1,1,0] = %li\n", offset_of(4, 0, 3, 5,5,5, 1, 1, 0));
     if(optind == argc) {
         log(error, "Expecting a filename e.g.: %s\n", "file.sbf");
         usage(argv[0]);
