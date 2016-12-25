@@ -132,7 +132,6 @@ void pretty_print_1d(void *data, const char *fmt_string, sbf_size stride,
     if(vertical) suffix = "\n";
     if(dtype == SBF_BYTE) 
         suffix="";
-
     for(ptrdiff_t offset = 0; offset != n * stride; offset = offset + stride) {
         switch(dtype) {
             case(SBF_INT):
@@ -162,7 +161,7 @@ void pretty_print_1d(void *data, const char *fmt_string, sbf_size stride,
                 break;
         }
     }
-    fprintf(stdout, "\n");
+    if(!vertical || (dtype == SBF_BYTE)) fprintf(stdout, "\n");
 }
 
 void pretty_print_2d(void *data, const char *fmt_string, sbf_size rows, sbf_size cols,
@@ -187,7 +186,7 @@ void pretty_print_3d(const sbf_DataHeader dset, void *data, const char*fmt_strin
     ptrdiff_t stride = offset_of(block_size, column_major, 3, dset.shape, idx);
     idx[2] = 0;
     for(int x1 = 0; x1 < dset.shape[0]; x1++) {
-        fprintf(stdout, "[%d][:][:]\n", x1);
+        fprintf(stdout, "%d, :, :\n", x1);
         idx[0] = x1;
         for(int x2 = 0; x2 < dset.shape[1]; x2++) {
             idx[1] = x2;
@@ -209,7 +208,7 @@ void pretty_print_4d(const sbf_DataHeader dset, void *data, const char*fmt_strin
     for(int x1 = 0; x1 < dset.shape[0]; x1++) {
         idx[0] = x1;
         for(int x2 = 0; x2 < dset.shape[1]; x2++) {
-            fprintf(stdout, "[%d][%d][:][:]\n", x1, x2);
+            fprintf(stdout, "%d, %d, :, :\n", x1, x2);
             idx[1] = x2;
             for(int x3 = 0; x3 < dset.shape[2]; x3++) {
                 idx[2] = x3;
@@ -235,7 +234,7 @@ void pretty_print_5d(const sbf_DataHeader dset, void *data, const char*fmt_strin
             idx[1] = x2;
             for(int x3 = 0; x3 < dset.shape[2]; x3++) {
                 idx[2] = x3;
-                fprintf(stdout, "[%d][%d][%d][:][:]\n", x1, x2,x3);
+                fprintf(stdout, "%d, %d, %d, :, :\n", x1, x2,x3);
                 for(int x4 = 0; x4 < dset.shape[3]; x4++) {
                     idx[3] = x4;
                     ptrdiff_t offset = offset_of(block_size, column_major, dims, dset.shape, idx);
@@ -253,7 +252,8 @@ void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_s
     sbf_byte dims = SBF_GET_DIMENSIONS(dset);
     uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
     if(dims == 0) {
-        fprintf(stdout, "TODO 0 DIMENSIONAL");
+        num_blocks = 1;
+        pretty_print_1d(data, fmt_string, stride, num_blocks, block_size, dset.data_type, 0);
     }
     else if(dims == 1) {
         pretty_print_1d(data, fmt_string, stride, num_blocks, block_size, dset.data_type, 1);
@@ -284,8 +284,9 @@ void dump_file_as_utf8(sbf_File * file, uint_fast8_t dump_all_data) {
     for(int i = 0; i < file->n_datasets; i++) {
 
         sbf_DataHeader dset = file->datasets[i];
-        fprintf(stdout, "dataset:\t\t'%s'\ntype|bytes|width:\t%s|%llu|%llubit\n",
-                dset.name, sbf_datatype_name(dset.data_type), sbf_datatype_size(dset), sbf_datatype_size(dset)*8);
+        fprintf(stdout, "dataset:\t\t'%s'\n", dset.name);
+        fprintf(stdout, "dtype:\t\t\t%s\n", sbf_datatype_name(dset.data_type));
+        fprintf(stdout, "dtype size:\t\t%llu bit\n", sbf_datatype_size(dset)*8);
         fprintf(stdout, "flags:\t\t\t"BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(dset.flags));
         uint_fast8_t dims = SBF_GET_DIMENSIONS(dset);
         fprintf(stdout, "dimensions:\t\t%d\n", dims);
@@ -296,7 +297,9 @@ void dump_file_as_utf8(sbf_File * file, uint_fast8_t dump_all_data) {
         }
         fprintf(stdout, "]\n");
         uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
-        fprintf(stdout, "column major:\t\t%s\n", column_major ? "true": "false");
+        fprintf(stdout, "storage:\t\t%s major\n", column_major ? "column": "row");
+        uint_fast8_t endianness = SBF_CHECK_BIG_ENDIAN_FLAG(dset);
+        fprintf(stdout, "endianness:\t\t%s endian\n", endianness ? "big": "little");
         if(dump_all_data) {
             sbf_size data_size = sbf_datatype_size(dset) * sbf_num_blocks(dset);
             uint8_t data[data_size];
@@ -304,9 +307,7 @@ void dump_file_as_utf8(sbf_File * file, uint_fast8_t dump_all_data) {
             if(res != SBF_RESULT_SUCCESS) {
                 log(error, "Problem reading dataset %s: %s\n", dset.name, strerror(errno));
             }
-            fprintf(stdout, "{\n");
             pretty_print_data(dset, (void *) data, format_string(dset.data_type));
-            fprintf(stdout, "}\n");
         }
         fprintf(stdout, "\n");
     }

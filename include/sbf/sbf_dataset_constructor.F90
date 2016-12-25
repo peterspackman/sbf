@@ -49,5 +49,6 @@ function ROUTINE_NAME(name, data)
     ! set the dimensions in file
     dims = 0
     call sbf_dh_set_dims(ROUTINE_NAME%header, dims)
+    ROUTINE_NAME%header%shape(1) = 1
 end function
 #endif
