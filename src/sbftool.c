@@ -57,24 +57,10 @@ void usage(const char * progname) {
     exit(EXIT_SUCCESS);
 }
 
-ptrdiff_t offset_of(sbf_size block_size, uint_fast8_t column_major, int dims, ...) {
+ptrdiff_t offset_of(sbf_size block_size, uint_fast8_t column_major,
+                    int dims, const sbf_size shape[SBF_MAX_DIM], int idx[dims]) {
     va_list ap;
     ptrdiff_t offset = 0;
-    int idx[dims];
-    int shape[dims];
-    va_start(ap, dims);
-    printf("dims = %d\n[", dims);
-    for(int i = 0; i < dims; i++) {
-        shape[i] = va_arg(ap, int);
-        printf(" %d", shape[i]);
-    }
-    printf(" ]\n[");
-    for(int i = 0; i < dims; i++) {
-        idx[i] = va_arg(ap, int);
-        printf(" %d", idx[i]);
-    }
-    printf(" ]\n");
-    va_end(ap);
 
     if(column_major) {
         for(int i = 0; i < dims; i++) {
@@ -192,6 +178,33 @@ void pretty_print_2d(void *data, const char *fmt_string, sbf_size rows, sbf_size
     }
 }
 
+void pretty_print_3d(const sbf_DataHeader dset, void *data, const char*fmt_string) {
+    sbf_byte dims = 3;
+    sbf_size block_size = sbf_datatype_size(dset);
+    sbf_size num_blocks = sbf_num_blocks(dset); // change
+    sbf_size stride = block_size;
+    uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
+    sbf_size cols = dset.shape[column_major ? dims - 2 : dims - 1];
+    sbf_size rows = dset.shape[column_major ? dims - 1 : dims - 2];
+    int slowest_index = column_major ? dims - 1 : 0;
+    for(int i = 0; i < dset.shape[slowest_index]; i++) {
+        int idx[dims]; idx[slowest_index] = i;
+        for(int x = 0; x < dims; x++) {
+            if(x == slowest_index) {
+                fprintf(stdout, "[%d]", i);
+                idx[x] = i;
+            }
+            else {
+                fprintf(stdout, "[:]");
+                idx[x] = 0;
+            }
+        }
+        fprintf(stdout, "\n");
+        ptrdiff_t offset = offset_of(block_size, column_major, 3, dset.shape, idx);
+        pretty_print_2d(data + offset, fmt_string, rows, cols, block_size, dset.data_type, column_major);
+    }
+}
+
 
 void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_string) {
     sbf_size block_size = sbf_datatype_size(dset);
@@ -199,48 +212,23 @@ void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_s
     sbf_size stride = block_size;
     sbf_byte dims = SBF_GET_DIMENSIONS(dset);
     uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
-    int i = 0, j = 1;
-    if(dims == 1) {
+    if(dims == 0) {
+        fprintf(stdout, "TODO 0 DIMENSIONAL");
+    }
+    else if(dims == 1) {
         pretty_print_1d(data, fmt_string, stride, num_blocks, block_size, dset.data_type, 1);
     }
     else if(dims == 2) {
-        sbf_size cols = dset.shape[column_major ? 0 : 1];
-        sbf_size rows = dset.shape[column_major ? 1 : 0];
+        sbf_size cols = dset.shape[column_major ? dims - 2 : dims - 1];
+        sbf_size rows = dset.shape[column_major ? dims - 1 : dims - 2];
         pretty_print_2d(data, fmt_string, rows, cols, block_size, dset.data_type, column_major);
     }
+    else if(dims == 3) {
+        pretty_print_3d(dset, data, fmt_string);
+    }
     else {
-        sbf_size cols = dset.shape[column_major ? 0 : 1];
-        sbf_size rows = dset.shape[column_major ? 1 : 0];
-        if(!column_major) {
-             for(int k = dims-1; k > j; k--) {
-                sbf_size k_dim = dset.shape[k];
-                log(debug, "k_dim = %llu, i = %d, j = %d, k=%d\n", k_dim, i, j, k);
-                for(int l = 0; l < k_dim; l++) {
-                    fprintf(stdout, "[%d][:][:]\n", l);
-                    ptrdiff_t offset = rows * cols * block_size * l;
-                    pretty_print_2d(data + offset, fmt_string, rows, cols, block_size, dset.data_type, column_major);
-                }
-            }
-        }
-        else {
-            for(int k = 0; k < i; k++) {
-                sbf_size k_dim = dset.shape[k];
-                log(debug, "k_dim = %llu, i = %d, j = %d, k=%d\n", k_dim, i, j, k);
-                for(int l = 0; l < k_dim; l++) {
-                    for(int idx=0; idx < dims; idx++) {
-                        if (idx == i || idx == j)
-                                fprintf(stdout, "[:]");
-                        else if (idx == k)
-                                fprintf(stdout, "[%d]",l);
-                        else fprintf(stdout, "[?]");
-                    }
-                    fprintf(stdout, "\n");
-                    ptrdiff_t offset = rows * cols * block_size * l;
-                    pretty_print_2d(data + offset, fmt_string, rows, cols, block_size, dset.data_type, column_major);
-                }
-            }
-        }
-     }
+        fprintf(stdout, "TODO N DIMS");
+    }
     fprintf(stdout, "\n");
 }
 
