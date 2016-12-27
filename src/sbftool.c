@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "sbf.h"
 #include <unistd.h>
 #include <complex.h>
@@ -46,7 +47,7 @@ enum log_level GLOBAL_LOG_LEVEL = info;
 const char *test_filename = "/tmp/sbf_test_c.sbf";
 
 void usage(const char * progname) {
-    fprintf(stdout, "%s [-dl] filename\n\n", progname);
+    fprintf(stdout, "%s [-cdl] filename\n\n", progname);
     fprintf(stdout, "Options:\n");
     fprintf(stdout, "\t-l\tList all datasets in file.\n");
     fprintf(stdout, "\t-d\tspecify of all datasets in file.\n");
@@ -57,34 +58,7 @@ void usage(const char * progname) {
     exit(EXIT_SUCCESS);
 }
 
-ptrdiff_t offset_of(sbf_size block_size, uint_fast8_t column_major,
-                    int dims, const sbf_size shape[SBF_MAX_DIM], int idx[dims]) {
-    va_list ap;
-    ptrdiff_t offset = 0;
-
-    if(column_major) {
-        for(int i = 0; i < dims; i++) {
-            int product = 1;
-            for(int j = 0; j < i; j++) {
-                product = product * shape[j];
-            }
-            offset = offset + product * idx[i];
-        }
-    }
-    else {
-        for(int i = 0; i < dims; i++) {
-            int product = 1;
-            for(int j = i + 1; j < dims; j++) {
-                product = product * shape[j];
-            }
-            offset = offset + product * idx[i];
-        }
-
-    }
-    return offset * block_size;
-}
-
-ptrdiff_t offset_of2(sbf_size block_size, uint_fast8_t column_major,
+ptrdiff_t offset_of(sbf_size block_size, bool column_major,
                     int dims, const sbf_size shape[SBF_MAX_DIM], sbf_size idx[SBF_MAX_DIM]) {
     va_list ap;
     ptrdiff_t offset = 0;
@@ -184,8 +158,8 @@ void pretty_print_block(void *data, const char *fmt_string, sbf_data_type dtype)
     }
 }
 
-void increment_index(const sbf_size *shape,
-                     sbf_size *idx, const sbf_byte dims) {
+void increment_index(const sbf_size shape[SBF_MAX_DIM],
+                     sbf_size idx[SBF_MAX_DIM], const sbf_byte dims) {
     for(int dim = dims -1; dim > -1; dim--) {
         idx[dim]++;
         if(idx[dim] == shape[dim]) idx[dim] = 0;
@@ -193,7 +167,7 @@ void increment_index(const sbf_size *shape,
     }
 }
 
-uint_fast8_t all_zero(sbf_size idx[SBF_MAX_DIM]) {
+bool all_zero(sbf_size idx[SBF_MAX_DIM]) {
     for(int dim = 0; dim < SBF_MAX_DIM; dim++) 
         if(idx[dim] != 0) return 0;
     return 1;
@@ -204,17 +178,17 @@ void pretty_print_nd(const sbf_DataHeader dset, void *data, const char *fmt_stri
     sbf_byte dims = SBF_GET_DIMENSIONS(dset);
     sbf_size rows = dset.shape[dims - 2];
     sbf_size cols = dset.shape[dims - 1];
-    uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
+    bool column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
     sbf_size n = 0;
     do {
         if(n % rows == 0) {
             fprintf(stdout, "\n");
         }
         if(n % (rows * cols) == 0) {
-            for(int i = 0; i < dims - 2; i++) printf("%llu, ", idx[i]);
-            if(dims > 2) fprintf(stdout, ":, :\n");
+            for(int i = 0; i < dims - 2; i++) printf("%llu,", idx[i]);
+            if(dims > 2) fprintf(stdout, ":,:\n");
         }
-        ptrdiff_t offset = offset_of2(sbf_datatype_size(dset), column_major, dims, dset.shape, idx);
+        ptrdiff_t offset = offset_of(sbf_datatype_size(dset), column_major, dims, dset.shape, idx);
         pretty_print_block(data + offset, fmt_string, dset.data_type);
         n++;
         increment_index(dset.shape, idx, dims);
@@ -233,7 +207,7 @@ void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_s
     }
 }
 
-void dump_file_as_utf8(sbf_File * file, uint_fast8_t dump_all_data) {
+void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
     fprintf(stdout, "---- %s ----\n", file->filename);
     //TODO add version checking
     fprintf(stdout, "sbf %s\n", "v0.1.1");
@@ -244,17 +218,17 @@ void dump_file_as_utf8(sbf_File * file, uint_fast8_t dump_all_data) {
         fprintf(stdout, "dtype:\t\t\t%s\n", sbf_datatype_name(dset.data_type));
         fprintf(stdout, "dtype size:\t\t%llu bit\n", sbf_datatype_size(dset)*8);
         fprintf(stdout, "flags:\t\t\t"BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(dset.flags));
-        uint_fast8_t dims = SBF_GET_DIMENSIONS(dset);
+        sbf_byte dims = SBF_GET_DIMENSIONS(dset);
         fprintf(stdout, "dimensions:\t\t%d\n", dims);
         fprintf(stdout, "shape:\t\t\t");
         fprintf(stdout, "[%llu", dset.shape[0]);
-        for(uint_fast8_t dim = 1; dim < dims; dim++) {
+        for(sbf_byte dim = 1; dim < dims; dim++) {
             fprintf(stdout, ", %llu", dset.shape[dim]);
         }
         fprintf(stdout, "]\n");
-        uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
+        bool column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
         fprintf(stdout, "storage:\t\t%s major\n", column_major ? "column": "row");
-        uint_fast8_t endianness = SBF_CHECK_BIG_ENDIAN_FLAG(dset);
+        bool endianness = SBF_CHECK_BIG_ENDIAN_FLAG(dset);
         fprintf(stdout, "endianness:\t\t%s endian\n", endianness ? "big": "little");
         if(dump_all_data) {
             sbf_size data_size = sbf_datatype_size(dset) * sbf_num_blocks(dset);
@@ -269,61 +243,116 @@ void dump_file_as_utf8(sbf_File * file, uint_fast8_t dump_all_data) {
     }
 }
 
+
+void diff_files(sbf_File * file1, sbf_File * file2) {
+    return;
+}
+
 int main(int argc, char *argv[]) {
     extern char *optarg;
     extern int optind;
-    uint_fast8_t dump_file = 0, list_datasets = 0;
+    bool dump_file = false, list_datasets = false, diff = false;
     int c;
 
     opterr = 0;
     while ((c = getopt (argc, argv, "cdlh")) != -1)
         switch (c)
         {
+            case 'c':
+                diff = true;
+                break;
             case 'd':
-                dump_file = 1;
+                dump_file = true;
                 break;
             case 'l':
-                list_datasets = 1;
+                list_datasets = true;
                 break;
             case 'h':
                 usage(argv[0]);
                 break;
             case '?':
-                fprintf(stderr, "Unrecognised argument.\nTry %s -h for more information.\n", argv[0]);
+                if(optopt == 'c' || optopt == 'd')
+                    log(error, "Option -%c requires an argument.\n", optopt);
+                else if (isprint(optopt))
+                    log(error, "Unknown option -%c.\n", optopt);
+                else
+                    log(error, "Unknown option character '\\x%x'.\n", optopt);
+                exit(EXIT_FAILURE);
             default:
                 exit(EXIT_FAILURE);
         }
+
     log(debug, "flags:\n\tdump_file: %s\n\tlist_datasets: %s\n",
         dump_file ? "true":"false", list_datasets ? "true":"false");
 
-    if(optind == argc) {
-        log(error, "Expecting a filename e.g.: %s\n", "file.sbf");
-        usage(argv[0]);
+    if(diff) {
+        if(optind != (argc - 2)) {
+            log(error, "Option -c requires two filenames e.g.: %s %s\n",
+                "file1.sbf", "file2.sbf");
+            usage(argv[0]);
+        }
+        sbf_File file1 = sbf_new_file; sbf_File file2 = sbf_new_file;
+        file1.mode = SBF_FILE_READONLY; file2.mode = SBF_FILE_READONLY;
+        file1.filename = argv[optind]; file2.filename = argv[optind+1];
+        sbf_result res;
+        res = sbf_open(&file1);
+        if(res != SBF_RESULT_SUCCESS) {
+            log(error, "Could not open file %s: %s\n", file1.filename, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        res = sbf_open(&file2);
+        if(res != SBF_RESULT_SUCCESS) {
+            log(error, "Could not open file %s: %s\n", file2.filename, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+
+        diff_files(&file1, &file2);
+
+        res = sbf_close(&file1);
+        if(res != SBF_RESULT_SUCCESS) {
+            log(error, "Problem closing file %s: %s\n", file1.filename, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        res = sbf_close(&file2);
+        if(res != SBF_RESULT_SUCCESS) {
+            log(error, "Problem closing file %s: %s\n", file2.filename, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+
+    }
+    else {
+        if(optind == argc) {
+            log(error, "Expecting a filename e.g.: %s\n", "file.sbf");
+            usage(argv[0]);
+        }
+
+        // try to read all of the remaining arguments as sbf files
+        for (int index = optind; index < argc; index++) {
+            char * filename = argv[index];
+            sbf_File file = sbf_new_file;
+            file.mode = SBF_FILE_READONLY;
+            file.filename = filename;
+            sbf_result res;
+            res = sbf_open(&file);
+            if(res != SBF_RESULT_SUCCESS) {
+                log(error, "Could not open file %s: %s\n", file.filename, strerror(errno));
+                exit(EXIT_FAILURE);
+            }
+            res = sbf_read_headers(&file);
+            if(res != SBF_RESULT_SUCCESS) {
+                log(error, "Could not read headers: %s\n", strerror(errno));
+                exit(EXIT_FAILURE);
+            }
+            if(list_datasets || dump_file) dump_file_as_utf8(&file, dump_file);
+            res = sbf_close(&file);
+            if(res != SBF_RESULT_SUCCESS) {
+                log(error, "Problem closing file %s: %s\n", file.filename, strerror(errno));
+                exit(EXIT_FAILURE);
+            }
     }
 
-    // try to read all of the remaining arguments as sbf files
-    for (int index = optind; index < argc; index++) {
-        char * filename = argv[index];
-        sbf_File file = sbf_new_file;
-        file.mode = SBF_FILE_READONLY;
-        file.filename = filename;
-        sbf_result res;
-        res = sbf_open(&file);
-        if(res != SBF_RESULT_SUCCESS) {
-            log(error, "Could not open file %s: %s\n", file.filename, strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-        res = sbf_read_headers(&file);
-        if(res != SBF_RESULT_SUCCESS) {
-            log(error, "Could not read headers: %s\n", strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-        if(list_datasets || dump_file) dump_file_as_utf8(&file, dump_file);
-        res = sbf_close(&file);
-        if(res != SBF_RESULT_SUCCESS) {
-            log(error, "Problem closing file %s: %s\n", file.filename, strerror(errno));
-            exit(EXIT_FAILURE);
-        }
+   
     }
+
     return 0;
 }
