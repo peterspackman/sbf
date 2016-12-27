@@ -21,7 +21,7 @@
   (byte & 0x02 ? '1' : '0'), \
   (byte & 0x01 ? '1' : '0') 
 enum log_level {
-    error = 0, warning = 1, info = 2, debug = 3
+    error = 0, warning = 1, info = 2, verbose_info = 3, debug = 10
 };
 enum log_level GLOBAL_LOG_LEVEL = info;
 
@@ -237,15 +237,139 @@ void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
             if(res != SBF_RESULT_SUCCESS) {
                 log(error, "Problem reading dataset %s: %s\n", dset.name, strerror(errno));
             }
-            pretty_print_data(dset, (void *) data, format_string(dset.data_type));
+            else pretty_print_data(dset, (void *) data, format_string(dset.data_type));
         }
         fprintf(stdout, "\n");
     }
 }
 
+bool shape_equal(sbf_size shape1[SBF_MAX_DIM], sbf_size shape2[SBF_MAX_DIM]) {
+    for(sbf_byte i = 0; i < SBF_MAX_DIM; i++) {
+        if(shape1[i] != shape2[i]) return false;
+    }
+    return true;
+}
 
-void diff_files(sbf_File * file1, sbf_File * file2) {
-    return;
+int get_dataset(const char * name, const sbf_File * file) {
+    int found = -1;
+    for(sbf_byte i = 0; i < file->n_datasets; i++) {
+        if(strncmp(name, file->datasets[i].name, SBF_NAME_LENGTH) == 0) {
+            found = i;
+            log(debug, "Found matching dset : '%s'\n", file->datasets[i].name);
+        }
+    }
+    return found;
+}
+
+bool compare_blocks(void * a, void * b, sbf_data_type dtype) {
+    switch(dtype) {
+        case(SBF_INT):
+            return *(int *)(a) == *(int *)(b);
+        case(SBF_LONG):
+            return *(long *)(a) == *(long *)(b);
+        case(SBF_DOUBLE):
+            return *(double *)(a) == *(double *)(b);
+        case(SBF_FLOAT):
+            return *(float *)(a) == *(float *)(b);
+        case(SBF_CFLOAT):
+            return (*(float *)(a) == *(float *)(b)) &&
+                   (*(float *)(a+sizeof(float)) == *(float *)(b+sizeof(float))); 
+        case(SBF_CDOUBLE):
+            return (*(double *)(a) == *(double *)(b)) &&
+                   (*(double *)(a+sizeof(double)) == *(double *)(b+sizeof(double))); 
+        default:
+            return *(char *)(a) == *(char *)(b);
+    }
+
+}
+
+sbf_size diff_datablocks(const sbf_DataHeader dset1, void * data1,
+                         const sbf_DataHeader dset2, void * data2) {
+    sbf_size bytes = sbf_num_blocks(dset1) * sbf_datatype_size(dset1); 
+    bool raw = false;
+    if(raw) return memcmp(data1, data2, bytes);
+    sbf_size diffs = 0;
+    bool cmaj1 = SBF_CHECK_COLUMN_MAJOR_FLAG(dset1);
+    bool cmaj2 = SBF_CHECK_COLUMN_MAJOR_FLAG(dset2);
+
+    sbf_size idx[SBF_MAX_DIM] = {0};
+    sbf_byte dims = SBF_GET_DIMENSIONS(dset1);
+    const char * fmt_string = format_string(dset1.data_type);
+    do {
+        ptrdiff_t offset1 = offset_of(sbf_datatype_size(dset1), cmaj1, dims, dset1.shape, idx);
+        ptrdiff_t offset2 = offset_of(sbf_datatype_size(dset2), cmaj2, dims, dset1.shape, idx);
+        if(!compare_blocks(data1 + offset1, data2 + offset2, dset1.data_type)) {
+            if(GLOBAL_LOG_LEVEL >= verbose_info) {
+                log(verbose_info, "'%s' difference at ",dset1.name);
+                for(sbf_byte dim = 0; dim < dims; dim++) log(verbose_info, "[%llu]", idx[dim]);
+                pretty_print_block(data1 + offset1, fmt_string, dset1.data_type);
+                fprintf(stdout, " != ");
+                pretty_print_block(data2 + offset2, fmt_string, dset2.data_type);
+                fprintf(stdout, "\n");
+            }
+            diffs++;
+        }
+        increment_index(dset1.shape, idx, dims);
+    } while(!all_zero(idx));
+    return diffs;
+}
+
+sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
+    sbf_byte n1 = file1->n_datasets; sbf_byte n2 = file2->n_datasets;
+    sbf_size file_diffs = 0;
+    bool deep_check = true;
+    if(n1 != n2) {
+        log(verbose_info, "Different number of datasets: %d, %d\n", n1, n2);
+        return ++file_diffs;
+    }
+    for(sbf_byte i = 0; i < n1;  i++) {
+        sbf_DataHeader dset = file1->datasets[i];
+        sbf_size dset_diffs = 0;
+        int dset_found = get_dataset(dset.name, file2);
+        if(dset_found == -1) {
+            log(verbose_info, "No matching dataset found for '%s' in %s\n", dset.name, file2->filename);
+            file_diffs++;
+        }
+        else {
+            sbf_DataHeader dset2 = file2->datasets[dset_found];
+            bool flags_equal = (dset.flags == dset2.flags);
+            bool dtypes_equal = (dset.data_type == dset2.data_type);
+            bool shapes_equal = shape_equal(dset.shape, dset2.shape);
+
+            if(!flags_equal) {
+                log(verbose_info, "flags for '%s' differ.\n", dset.name);
+                dset_diffs++;
+            }
+            if(!dtypes_equal) {
+                log(verbose_info, "data types for '%s' differ.\n", dset.name);
+                dset_diffs++;
+            }
+            if(!shapes_equal) {
+                log(verbose_info, "shapes for '%s' differ.\n", dset.name);
+                dset_diffs++;
+            }
+            if(deep_check && flags_equal && shapes_equal && dtypes_equal) {
+                sbf_size data_size = sbf_datatype_size(dset) * sbf_num_blocks(dset);
+                uint8_t data1[data_size];
+                uint8_t data2[data_size];
+                sbf_result res = sbf_read_dataset(file1, dset, data1);
+                if(res != SBF_RESULT_SUCCESS) {
+                    log(error, "Problem reading dataset '%s' in %s: %s\n", 
+                        dset.name, file1->filename, strerror(errno));
+                    break;
+                }
+                res = sbf_read_dataset(file2, dset2, data2);
+                if(res != SBF_RESULT_SUCCESS) {
+                    log(error, "Problem reading dataset %s: %s\n", dset.name, strerror(errno));
+                    break;
+                }
+                dset_diffs = dset_diffs + diff_datablocks(dset, data1, dset2, data2);
+            }
+            log(verbose_info, "%llu differences in '%s'\n", dset_diffs, dset.name);
+            file_diffs = file_diffs + dset_diffs;
+        }
+    }
+    return file_diffs;
 }
 
 int main(int argc, char *argv[]) {
@@ -297,28 +421,35 @@ int main(int argc, char *argv[]) {
         sbf_result res;
         res = sbf_open(&file1);
         if(res != SBF_RESULT_SUCCESS) {
-            log(error, "Could not open file %s: %s\n", file1.filename, strerror(errno));
             exit(EXIT_FAILURE);
         }
         res = sbf_open(&file2);
         if(res != SBF_RESULT_SUCCESS) {
-            log(error, "Could not open file %s: %s\n", file2.filename, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        res = sbf_read_headers(&file1);
+        if(res != SBF_RESULT_SUCCESS) {
+            exit(EXIT_FAILURE);
+        }
+        res = sbf_read_headers(&file2);
+        if(res != SBF_RESULT_SUCCESS) {
             exit(EXIT_FAILURE);
         }
 
-        diff_files(&file1, &file2);
+        sbf_size diffs = diff_files(&file1, &file2);
+        if(diffs)
+            log(info, "%llu difference%s between %s and %s\n",
+                diffs, diffs > 1 ? "s" : "", file1.filename, file2.filename);
 
         res = sbf_close(&file1);
         if(res != SBF_RESULT_SUCCESS) {
-            log(error, "Problem closing file %s: %s\n", file1.filename, strerror(errno));
             exit(EXIT_FAILURE);
         }
         res = sbf_close(&file2);
         if(res != SBF_RESULT_SUCCESS) {
-            log(error, "Problem closing file %s: %s\n", file2.filename, strerror(errno));
             exit(EXIT_FAILURE);
         }
-
+        exit(diffs);
     }
     else {
         if(optind == argc) {
@@ -334,21 +465,19 @@ int main(int argc, char *argv[]) {
             file.filename = filename;
             sbf_result res;
             res = sbf_open(&file);
-            if(res != SBF_RESULT_SUCCESS) {
-                log(error, "Could not open file %s: %s\n", file.filename, strerror(errno));
-                exit(EXIT_FAILURE);
-            }
+
+            if(res != SBF_RESULT_SUCCESS) exit(EXIT_FAILURE);
+
             res = sbf_read_headers(&file);
             if(res != SBF_RESULT_SUCCESS) {
                 log(error, "Could not read headers: %s\n", strerror(errno));
                 exit(EXIT_FAILURE);
             }
             if(list_datasets || dump_file) dump_file_as_utf8(&file, dump_file);
+
             res = sbf_close(&file);
-            if(res != SBF_RESULT_SUCCESS) {
-                log(error, "Problem closing file %s: %s\n", file.filename, strerror(errno));
-                exit(EXIT_FAILURE);
-            }
+            if(res != SBF_RESULT_SUCCESS) exit(EXIT_FAILURE);
+            
     }
 
    

@@ -26,7 +26,7 @@ program write_read_file
     do i = 1,size(fdata, 1)
     do j = 1,size(fdata, 2)
     do k = 1,size(fdata, 3)
-        fdata(i,j,k) = i * 100 + j * 10 + k
+        fdata(i,j,k) = i * 100 + j * 10 + k -1
     end do
     end do
     end do

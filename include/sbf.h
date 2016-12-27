@@ -181,7 +181,7 @@ sbf_result sbf_open(sbf_File *sbf) {
     }
 
     if (sbf->fp == NULL) {
-        SBF_PERROR("Failed to open file: %s\n", strerror(errno));
+        SBF_PERROR("Failed to open file '%s': %s.\n", sbf->filename, strerror(errno));
         return SBF_RESULT_FILE_OPEN_FAILURE;
     }
 
@@ -198,7 +198,7 @@ sbf_result sbf_close(const sbf_File *file) {
     FAIL_IF_NULL(file);
     int ret = fclose(file->fp);
     if (ret != 0) {
-        SBF_PERROR("Failed to close file: %s\n", strerror(errno));
+        SBF_PERROR("Failed to close file '%s': %s.\n", file->filename, strerror(errno));
         return SBF_RESULT_FILE_CLOSE_FAILURE;
     }
     return SBF_RESULT_SUCCESS;
@@ -219,8 +219,8 @@ sbf_result sbf_add_dataset(sbf_File *sbf, const char *name, sbf_data_type type,
 
     // Fail if there are already too many datasets in the file
     if (sbf->n_datasets >= SBF_MAX_DATASETS) {
-        SBF_PERROR("Number of datasets (%d) exceeded SBF_MAX_DATASETS (%d)\n",
-                   sbf->n_datasets, SBF_MAX_DATASETS);
+        SBF_PERROR("Number of datasets in '%s' (%d) exceeded SBF_MAX_DATASETS (%d)\n",
+                   sbf->filename, sbf->n_datasets, SBF_MAX_DATASETS);
         return SBF_RESULT_MAX_DATASETS_EXCEEDED_FAILURE;
     }
 
