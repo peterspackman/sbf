@@ -21,9 +21,9 @@
   (byte & 0x02 ? '1' : '0'), \
   (byte & 0x01 ? '1' : '0') 
 enum log_level {
-    error = 0, warning = 1, info = 2, verbose_info = 3, debug = 10
+    error = 0, warning = 1, info = 2, verbose_info = 3, very_verbose_info = 4, debug = 5
 };
-enum log_level GLOBAL_LOG_LEVEL = info;
+enum log_level GLOBAL_LOG_LEVEL = error;
 
 #define log(level, message, ...) \
     do {                                        \
@@ -98,6 +98,8 @@ const char * sbf_datatype_name(sbf_byte data_type) {
             return "sbf_complex_float";
         case SBF_CDOUBLE:
             return "sbf_complex_double";
+        case SBF_CHAR:
+            return "sbf_character";
         default:
             return "sbf_byte";
     }
@@ -106,19 +108,21 @@ const char * sbf_datatype_name(sbf_byte data_type) {
 const char * format_string(sbf_byte data_type) {
     switch(data_type) {
         case SBF_DOUBLE:
-            return "%s% 10.3f%s";
+            return "%s% 7.5g%s";
         case SBF_INT:
-            return "%s% d%s";
+            return "%s% 7d%s";
         case SBF_LONG:
-            return "%s% li%s";
+            return "%s% 7li%s";
         case SBF_FLOAT:
-            return "%s% 10.3f%s";
+            return "%s% 7.5g%s";
         case SBF_CFLOAT:
-            return "%s% 5.2f%+5.2fi";
+            return "%s%3.1g%+3.1gi";
         case SBF_CDOUBLE:
-            return "%s% 5.2f%+5.2fi";
-        default:
+            return "%s%3.1g%+3.1gi";
+        case SBF_CHAR:
             return "%s%c%s";
+        default:
+            return "%s%0x %s";
     }
 
 }
@@ -181,7 +185,7 @@ void pretty_print_nd(const sbf_DataHeader dset, void *data, const char *fmt_stri
     bool column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
     sbf_size n = 0;
     do {
-        if(n % rows == 0) {
+        if((n % rows == 0) && n > 0) {
             fprintf(stdout, "\n");
         }
         if(n % (rows * cols) == 0) {
@@ -201,6 +205,7 @@ void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_s
     sbf_byte dims = SBF_GET_DIMENSIONS(dset);
     if(dims == 0) {
         pretty_print_block(data, fmt_string, dset.data_type);
+        fprintf(stdout, "\n");
     }
     else {
         pretty_print_nd(dset, data, fmt_string);
@@ -237,7 +242,11 @@ void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
             if(res != SBF_RESULT_SUCCESS) {
                 log(error, "Problem reading dataset %s: %s\n", dset.name, strerror(errno));
             }
-            else pretty_print_data(dset, (void *) data, format_string(dset.data_type));
+            else {
+                fprintf(stdout, "\n--- contents ---\n");
+                pretty_print_data(dset, (void *) data, format_string(dset.data_type));
+                fprintf(stdout, "----------------\n");
+            }
         }
         fprintf(stdout, "\n");
     }
@@ -300,10 +309,11 @@ sbf_size diff_datablocks(const sbf_DataHeader dset1, void * data1,
         ptrdiff_t offset2 = offset_of(sbf_datatype_size(dset2), cmaj2, dims, dset1.shape, idx);
         if(!compare_blocks(data1 + offset1, data2 + offset2, dset1.data_type)) {
             if(GLOBAL_LOG_LEVEL >= verbose_info) {
-                log(verbose_info, "'%s' difference at ",dset1.name);
+                log(verbose_info, "'%s' differs @",dset1.name);
                 for(sbf_byte dim = 0; dim < dims; dim++) log(verbose_info, "[%llu]", idx[dim]);
+                fprintf(stdout, "\t\t");
                 pretty_print_block(data1 + offset1, fmt_string, dset1.data_type);
-                fprintf(stdout, " != ");
+                fprintf(stdout, "\t<==>\t");
                 pretty_print_block(data2 + offset2, fmt_string, dset2.data_type);
                 fprintf(stdout, "\n");
             }
@@ -379,7 +389,7 @@ int main(int argc, char *argv[]) {
     int c;
 
     opterr = 0;
-    while ((c = getopt (argc, argv, "cdlh")) != -1)
+    while ((c = getopt (argc, argv, "cdlhv")) != -1)
         switch (c)
         {
             case 'c':
@@ -393,6 +403,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'h':
                 usage(argv[0]);
+                break;
+            case 'v':
+                GLOBAL_LOG_LEVEL++;
                 break;
             case '?':
                 if(optopt == 'c' || optopt == 'd')

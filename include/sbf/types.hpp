@@ -60,7 +60,8 @@ enum DataType : sbf_byte {
     SBF_FLOAT,
     SBF_DOUBLE,
     SBF_CFLOAT,
-    SBF_CDOUBLE
+    SBF_CDOUBLE,
+    SBF_CHAR
 };
 
 enum AccessMode { reading, writing };

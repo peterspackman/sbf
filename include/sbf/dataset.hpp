@@ -161,6 +161,9 @@ class Dataset {
         case SBF_CDOUBLE:
             bytes = sizeof(sbf_complex_double);
             break;
+        case SBF_CHAR:
+            bytes = sizeof(sbf_character);
+            break;
         }
         return bytes;
     }

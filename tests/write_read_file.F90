@@ -18,7 +18,7 @@ program write_read_file
     real(sbf_double), dimension(:,:,:,:), allocatable :: read_ddata
     real(sbf_float), dimension(:,:,:), allocatable :: read_fdata
     real(sbf_float) :: write_scalar = 5.25, read_scalar = 0
-    character(len=100) :: char_array = "test string please ignore"
+    character(len=100) :: char_array = "test strang please ignore"
     character(len=:), allocatable :: string
     real :: start, finish
     integer :: errflag
@@ -26,10 +26,12 @@ program write_read_file
     do i = 1,size(fdata, 1)
     do j = 1,size(fdata, 2)
     do k = 1,size(fdata, 3)
-        fdata(i,j,k) = i * 100 + j * 10 + k -1
+        fdata(i,j,k) = i * 100 + j * 10 + k
     end do
     end do
     end do
+    fdata(1,1,2) = 300
+    fdata(5,3,2) = 30
 
     do i = 1,size(cdata, 1)
     do j = 1,size(cdata, 2)
@@ -46,6 +48,7 @@ program write_read_file
     end do
     end do
     end do
+    ddata(1,3,2,1) = 5
 
     do i = 1,size(ldata, 1)
     do j = 1,size(ldata, 2)

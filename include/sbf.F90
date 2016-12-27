@@ -21,7 +21,7 @@
 #define SBF_DOUBLE 4
 #define SBF_CFLOAT 5
 #define SBF_CDOUBLE 6
-#define SBF_CHAR SBF_BYTE
+#define SBF_CHAR 7
 
 #define SBF_RESULT_SUCCESS 1
 #define SBF_RESULT_FILE_OPEN_FAILURE 2

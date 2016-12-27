@@ -104,6 +104,7 @@ typedef sbf_byte sbf_data_type;
 #define SBF_DOUBLE 4
 #define SBF_CFLOAT 5
 #define SBF_CDOUBLE 6
+#define SBF_CHAR 7
 
 typedef enum {
     SBF_FILE_READONLY,
@@ -266,6 +267,9 @@ sbf_size sbf_datatype_size(const sbf_DataHeader header) {
         break;
     case SBF_CDOUBLE:
         datatype_size = sizeof(sbf_complex_double);
+        break;
+    case SBF_CHAR:
+        datatype_size = sizeof(sbf_character);
         break;
     }
     return datatype_size;
