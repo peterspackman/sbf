@@ -84,6 +84,32 @@ ptrdiff_t offset_of(sbf_size block_size, uint_fast8_t column_major,
     return offset * block_size;
 }
 
+ptrdiff_t offset_of2(sbf_size block_size, uint_fast8_t column_major,
+                    int dims, const sbf_size shape[SBF_MAX_DIM], sbf_size idx[SBF_MAX_DIM]) {
+    va_list ap;
+    ptrdiff_t offset = 0;
+
+    if(column_major) {
+        for(int i = 0; i < dims; i++) {
+            int product = 1;
+            for(int j = 0; j < i; j++) {
+                product = product * shape[j];
+            }
+            offset = offset + product * idx[i];
+        }
+    }
+    else {
+        for(int i = 0; i < dims; i++) {
+            int product = 1;
+            for(int j = i + 1; j < dims; j++) {
+                product = product * shape[j];
+            }
+            offset = offset + product * idx[i];
+        }
+
+    }
+    return offset * block_size;
+}
 const char * sbf_datatype_name(sbf_byte data_type) {
     switch(data_type) {
         case SBF_DOUBLE:
@@ -123,157 +149,87 @@ const char * format_string(sbf_byte data_type) {
 
 }
 
-void pretty_print_1d(void *data, const char *fmt_string, sbf_size stride,
-                    sbf_size n, sbf_size block_size, sbf_data_type dtype, uint_fast8_t vertical) {
-
+void pretty_print_block(void *data, const char *fmt_string, sbf_data_type dtype) {
     ptrdiff_t offset = 0;
     const char * suffix = "";
     const char * prefix = "";
-    if(vertical) suffix = "\n";
     if(dtype == SBF_BYTE) 
         suffix="";
-    for(ptrdiff_t offset = 0; offset != n * stride; offset = offset + stride) {
-        switch(dtype) {
-            case(SBF_INT):
-                fprintf(stdout, fmt_string, "", *(int *)(data + offset), suffix);
-                break;
-            case(SBF_LONG):
-                fprintf(stdout, fmt_string, "", *(long int *)(data + offset), suffix);
-                break;
-            case(SBF_DOUBLE):
-                fprintf(stdout, fmt_string, "", *(double *)(data + offset), suffix);
-                break;
-            case(SBF_FLOAT):
-                fprintf(stdout, fmt_string, "", *(float *)(data + offset), suffix);
-                break;
-            case(SBF_CFLOAT):
-                fprintf(stdout, fmt_string, "", *(float *)(data + offset), 
-                                                *(float *)(data + offset + sizeof(float)), 
-                                                suffix);
-                break;
-            case(SBF_CDOUBLE):
-                fprintf(stdout, fmt_string, "", *(double *)(data + offset), 
-                                                *(double *)(data + offset + sizeof(double)), 
-                                                suffix);
-                break;
-            default:
-                fprintf(stdout, fmt_string, "",*(char *)(data + offset), suffix);
-                break;
-        }
-    }
-    if(!vertical || (dtype == SBF_BYTE)) fprintf(stdout, "\n");
-}
-
-void pretty_print_2d(void *data, const char *fmt_string, sbf_size rows, sbf_size cols,
-                    sbf_size block_size, sbf_data_type dtype, uint_fast8_t column_major) {
-    ptrdiff_t column_stride = block_size, row_stride = block_size * cols, stride = 0;
-
-    if(column_major) {
-        stride = column_stride; column_stride = row_stride; row_stride = stride;
-    }
-    // print out row by row
-    for(int row = 0; row < rows; row++) {
-        pretty_print_1d(data + (row * row_stride), fmt_string, column_stride, cols, block_size, dtype, 0);
+    switch(dtype) {
+        case(SBF_INT):
+            fprintf(stdout, fmt_string, "", *(int *)(data), suffix);
+            break;
+        case(SBF_LONG):
+            fprintf(stdout, fmt_string, "", *(long int *)(data), suffix);
+            break;
+        case(SBF_DOUBLE):
+            fprintf(stdout, fmt_string, "", *(double *)(data), suffix);
+            break;
+        case(SBF_FLOAT):
+            fprintf(stdout, fmt_string, "", *(float *)(data), suffix);
+            break;
+        case(SBF_CFLOAT):
+            fprintf(stdout, fmt_string, "", *(float *)(data), 
+                                            *(float *)(data + sizeof(float)), 
+                                            suffix);
+            break;
+        case(SBF_CDOUBLE):
+            fprintf(stdout, fmt_string, "", *(double *)(data), 
+                                            *(double *)(data + sizeof(double)), 
+                                            suffix);
+            break;
+        default:
+            fprintf(stdout, fmt_string, "",*(char *)(data), suffix);
+            break;
     }
 }
 
-void pretty_print_3d(const sbf_DataHeader dset, void *data, const char*fmt_string) {
-    sbf_byte dims = 3;
-    sbf_size block_size = sbf_datatype_size(dset);
-    sbf_size num_blocks = sbf_num_blocks(dset); // change
+void increment_index(const sbf_size *shape,
+                     sbf_size *idx, const sbf_byte dims) {
+    for(int dim = dims -1; dim > -1; dim--) {
+        idx[dim]++;
+        if(idx[dim] == shape[dim]) idx[dim] = 0;
+        else break;
+    }
+}
+
+uint_fast8_t all_zero(sbf_size idx[SBF_MAX_DIM]) {
+    for(int dim = 0; dim < SBF_MAX_DIM; dim++) 
+        if(idx[dim] != 0) return 0;
+    return 1;
+}
+
+void pretty_print_nd(const sbf_DataHeader dset, void *data, const char *fmt_string) {
+    sbf_size idx[SBF_MAX_DIM] = {0};
+    sbf_byte dims = SBF_GET_DIMENSIONS(dset);
+    sbf_size rows = dset.shape[dims - 2];
+    sbf_size cols = dset.shape[dims - 1];
     uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
-    int idx[3] = {0, 0, 1};
-    ptrdiff_t stride = offset_of(block_size, column_major, 3, dset.shape, idx);
-    idx[2] = 0;
-    for(int x1 = 0; x1 < dset.shape[0]; x1++) {
-        fprintf(stdout, "%d, :, :\n", x1);
-        idx[0] = x1;
-        for(int x2 = 0; x2 < dset.shape[1]; x2++) {
-            idx[1] = x2;
-            ptrdiff_t offset = offset_of(block_size, column_major, 3, dset.shape, idx);
-            pretty_print_1d(data + offset, fmt_string, stride, dset.shape[2], block_size, dset.data_type, 0);
+    sbf_size n = 0;
+    do {
+        if(n % rows == 0) {
+            fprintf(stdout, "\n");
         }
-    }
+        if(n % (rows * cols) == 0) {
+            for(int i = 0; i < dims - 2; i++) printf("%llu, ", idx[i]);
+            if(dims > 2) fprintf(stdout, ":, :\n");
+        }
+        ptrdiff_t offset = offset_of2(sbf_datatype_size(dset), column_major, dims, dset.shape, idx);
+        pretty_print_block(data + offset, fmt_string, dset.data_type);
+        n++;
+        increment_index(dset.shape, idx, dims);
+    } while(!all_zero(idx));
+    fprintf(stdout, "\n");
 }
 
-void pretty_print_4d(const sbf_DataHeader dset, void *data, const char*fmt_string) {
-    sbf_byte dims = 4;
-    sbf_size block_size = sbf_datatype_size(dset);
-    sbf_size num_blocks = sbf_num_blocks(dset); // change
-    uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
-    int idx[SBF_MAX_DIM] = {0};
-    idx[dims - 1] = 1;
-    ptrdiff_t stride = offset_of(block_size, column_major, dims, dset.shape, idx);
-    idx[dims - 1] = 0;
-    for(int x1 = 0; x1 < dset.shape[0]; x1++) {
-        idx[0] = x1;
-        for(int x2 = 0; x2 < dset.shape[1]; x2++) {
-            fprintf(stdout, "%d, %d, :, :\n", x1, x2);
-            idx[1] = x2;
-            for(int x3 = 0; x3 < dset.shape[2]; x3++) {
-                idx[2] = x3;
-                ptrdiff_t offset = offset_of(block_size, column_major, dims, dset.shape, idx);
-                pretty_print_1d(data + offset, fmt_string, stride, dset.shape[dims - 1], block_size, dset.data_type, 0);
-            }
-        }
-    }
-}
-
-void pretty_print_5d(const sbf_DataHeader dset, void *data, const char*fmt_string) {
-    sbf_byte dims = 5;
-    sbf_size block_size = sbf_datatype_size(dset);
-    sbf_size num_blocks = sbf_num_blocks(dset); // change
-    uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
-    int idx[SBF_MAX_DIM] = {0};
-    idx[dims - 1] = 1;
-    ptrdiff_t stride = offset_of(block_size, column_major, dims, dset.shape, idx);
-    idx[dims - 1] = 0;
-    for(int x1 = 0; x1 < dset.shape[0]; x1++) {
-        idx[0] = x1;
-        for(int x2 = 0; x2 < dset.shape[1]; x2++) {
-            idx[1] = x2;
-            for(int x3 = 0; x3 < dset.shape[2]; x3++) {
-                idx[2] = x3;
-                fprintf(stdout, "%d, %d, %d, :, :\n", x1, x2,x3);
-                for(int x4 = 0; x4 < dset.shape[3]; x4++) {
-                    idx[3] = x4;
-                    ptrdiff_t offset = offset_of(block_size, column_major, dims, dset.shape, idx);
-                    pretty_print_1d(data + offset, fmt_string, stride, dset.shape[dims - 1], block_size, dset.data_type, 0);
-                }
-            }
-        }
-    }
-}
 
 void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_string) {
-    sbf_size block_size = sbf_datatype_size(dset);
-    sbf_size num_blocks = sbf_num_blocks(dset); // change
-    sbf_size stride = block_size;
     sbf_byte dims = SBF_GET_DIMENSIONS(dset);
-    uint_fast8_t column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
     if(dims == 0) {
-        num_blocks = 1;
-        pretty_print_1d(data, fmt_string, stride, num_blocks, block_size, dset.data_type, 0);
-    }
-    else if(dims == 1) {
-        pretty_print_1d(data, fmt_string, stride, num_blocks, block_size, dset.data_type, 1);
-    }
-    else if(dims == 2) {
-        sbf_size cols = dset.shape[column_major ? dims - 2 : dims - 1];
-        sbf_size rows = dset.shape[column_major ? dims - 1 : dims - 2];
-        pretty_print_2d(data, fmt_string, rows, cols, block_size, dset.data_type, column_major);
-    }
-    else if(dims == 3) {
-        pretty_print_3d(dset, data, fmt_string);
-    }
-    else if(dims == 4) {
-        pretty_print_4d(dset, data, fmt_string);
-    }
-    else if(dims == 5) {
-        pretty_print_5d(dset, data, fmt_string);
+        pretty_print_block(data, fmt_string, dset.data_type);
     }
     else {
-        fprintf(stdout, "TODO N DIMS");
+        pretty_print_nd(dset, data, fmt_string);
     }
 }
 
@@ -340,10 +296,6 @@ int main(int argc, char *argv[]) {
     log(debug, "flags:\n\tdump_file: %s\n\tlist_datasets: %s\n",
         dump_file ? "true":"false", list_datasets ? "true":"false");
 
-//    printf("Offset of column major int[1,0,0] = %li\n", offset_of(4, 1, 3, 5,5,5, 1, 0, 0));
- //   printf("Offset of row major int[1,0,0] = %li\n", offset_of(4, 0, 3, 5,5,5, 1, 0, 0));
-  //  printf("Offset of column major int[1,1,0] = %li\n", offset_of(4, 1, 3, 5,5,5, 1, 1, 0));
-   // printf("Offset of row major int[1,1,0] = %li\n", offset_of(4, 0, 3, 5,5,5, 1, 1, 0));
     if(optind == argc) {
         log(error, "Expecting a filename e.g.: %s\n", "file.sbf");
         usage(argv[0]);
