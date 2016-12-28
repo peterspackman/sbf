@@ -19,8 +19,9 @@
 #endif
 
 #define SBF_VERSION_MAJOR '0'
-#define SBF_VERSION_MINOR '1'
-#define SBF_VERSION_MINOR_MINOR '1'
+#define SBF_VERSION_MINOR '2'
+#define SBF_VERSION_MINOR_MINOR '0'
+#define SBF_VERSION "0.2.0"
 
 #define SBF_MAX_DIM 8
 #define SBF_MAX_DATASETS 16

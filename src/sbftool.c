@@ -9,6 +9,8 @@
 #include <complex.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <math.h>
+#define SBFTOOL_VERSION "0.2.0"
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
 #define BYTE_TO_BINARY(byte)  \
@@ -20,6 +22,7 @@
   (byte & 0x04 ? '1' : '0'), \
   (byte & 0x02 ? '1' : '0'), \
   (byte & 0x01 ? '1' : '0') 
+
 enum log_level {
     error = 0, warning = 1, info = 2, verbose_info = 3, very_verbose_info = 4, debug = 5
 };
@@ -38,22 +41,27 @@ enum log_level GLOBAL_LOG_LEVEL = error;
             fprintf(fd, message, __VA_ARGS__);  \
     } while(0)
 
-#define assert(message, test)                                                       \
-    do {                                                                            \
-        if (!(test))                                                                \
-            fprintf(stdout, "%s\n", message); fflush(stderr); exit(EXIT_FAILURE);   \
+#define SBF_ASSERT_SUCCESSFUL(res)           \
+    do {                                     \
+        if (res != SBF_RESULT_SUCCESS)       \
+            exit(EXIT_FAILURE);              \
     } while (0)
 
-const char *test_filename = "/tmp/sbf_test_c.sbf";
+float eps = 1e-5;
 
 void usage(const char * progname) {
-    fprintf(stdout, "%s [-cdl] filename\n\n", progname);
-    fprintf(stdout, "Options:\n");
-    fprintf(stdout, "\t-l\tList all datasets in file.\n");
-    fprintf(stdout, "\t-d\tspecify of all datasets in file.\n");
-    fprintf(stdout, "\t-c\tCompare contents of two sbf file. (UNIMPLEMENTED)\n");
-    fprintf(stdout, "\t-h\tPrint this help message.\n");
-    fprintf(stdout, "\n");
+    fprintf(stdout,
+    "sbftool %s (SBF v%s)\n"
+    "Usage:\n"
+    "\tsbftool [-cdl] filename\n"
+    "Options:\n"
+        "\t-l\tprint the metadata for dataset(s).\n"
+        "\t-d\tspecify a dataset.\n"
+        "\t-p\tprint out contents of dataset(s) (implies -l).\n"
+        "\t-c\tCompare contents of two sbf files.\n"
+        "\t-m\tOnly compare dataset metadata of the two sbf files.\n"
+        "\t-h\tPrint this help message.\n\n",
+        SBFTOOL_VERSION, SBF_VERSION);
 
     exit(EXIT_SUCCESS);
 }
@@ -219,22 +227,22 @@ void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
     for(int i = 0; i < file->n_datasets; i++) {
 
         sbf_DataHeader dset = file->datasets[i];
-        fprintf(stdout, "dataset:\t\t'%s'\n", dset.name);
-        fprintf(stdout, "dtype:\t\t\t%s\n", sbf_datatype_name(dset.data_type));
-        fprintf(stdout, "dtype size:\t\t%llu bit\n", sbf_datatype_size(dset)*8);
-        fprintf(stdout, "flags:\t\t\t"BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(dset.flags));
+        fprintf(stdout, "dataset:\t'%s'\n", dset.name);
+        fprintf(stdout, "dtype:\t\t%s\n", sbf_datatype_name(dset.data_type));
+        fprintf(stdout, "dtype size:\t%llu bit\n", sbf_datatype_size(dset)*8);
+        fprintf(stdout, "flags:\t\t"BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(dset.flags));
         sbf_byte dims = SBF_GET_DIMENSIONS(dset);
-        fprintf(stdout, "dimensions:\t\t%d\n", dims);
-        fprintf(stdout, "shape:\t\t\t");
+        fprintf(stdout, "dimensions:\t%d\n", dims);
+        fprintf(stdout, "shape:\t\t");
         fprintf(stdout, "[%llu", dset.shape[0]);
         for(sbf_byte dim = 1; dim < dims; dim++) {
             fprintf(stdout, ", %llu", dset.shape[dim]);
         }
         fprintf(stdout, "]\n");
         bool column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
-        fprintf(stdout, "storage:\t\t%s major\n", column_major ? "column": "row");
+        fprintf(stdout, "storage:\t%s major\n", column_major ? "column": "row");
         bool endianness = SBF_CHECK_BIG_ENDIAN_FLAG(dset);
-        fprintf(stdout, "endianness:\t\t%s endian\n", endianness ? "big": "little");
+        fprintf(stdout, "endianness:\t%s endian\n", endianness ? "big": "little");
         if(dump_all_data) {
             sbf_size data_size = sbf_datatype_size(dset) * sbf_num_blocks(dset);
             uint8_t data[data_size];
@@ -277,9 +285,9 @@ bool compare_blocks(void * a, void * b, sbf_data_type dtype) {
         case(SBF_LONG):
             return *(long *)(a) == *(long *)(b);
         case(SBF_DOUBLE):
-            return *(double *)(a) == *(double *)(b);
+            return (fabs(*(double *)(a) - *(double *)(b)) < eps);
         case(SBF_FLOAT):
-            return *(float *)(a) == *(float *)(b);
+            return (fabs(*(float *)(a) - *(float *)(b)) < eps);
         case(SBF_CFLOAT):
             return (*(float *)(a) == *(float *)(b)) &&
                    (*(float *)(a+sizeof(float)) == *(float *)(b+sizeof(float))); 
@@ -309,11 +317,11 @@ sbf_size diff_datablocks(const sbf_DataHeader dset1, void * data1,
         ptrdiff_t offset2 = offset_of(sbf_datatype_size(dset2), cmaj2, dims, dset1.shape, idx);
         if(!compare_blocks(data1 + offset1, data2 + offset2, dset1.data_type)) {
             if(GLOBAL_LOG_LEVEL >= verbose_info) {
-                log(verbose_info, "'%s' differs @",dset1.name);
-                for(sbf_byte dim = 0; dim < dims; dim++) log(verbose_info, "[%llu]", idx[dim]);
-                fprintf(stdout, "\t\t");
+                log(verbose_info, "D '%s' @(",dset1.name);
+                for(sbf_byte dim = 0; dim < dims; dim++) log(verbose_info, "%s%llu", (dim ==0)? "":",", idx[dim]);
+                fprintf(stdout, "):");
                 pretty_print_block(data1 + offset1, fmt_string, dset1.data_type);
-                fprintf(stdout, "\t<==>\t");
+                fprintf(stdout, " < >");
                 pretty_print_block(data2 + offset2, fmt_string, dset2.data_type);
                 fprintf(stdout, "\n");
             }
@@ -333,6 +341,7 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
         return ++file_diffs;
     }
     for(sbf_byte i = 0; i < n1;  i++) {
+        log(debug, "Checking dataset %d in %s\n", i, file1->filename);
         sbf_DataHeader dset = file1->datasets[i];
         sbf_size dset_diffs = 0;
         int dset_found = get_dataset(dset.name, file2);
@@ -347,15 +356,17 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
             bool shapes_equal = shape_equal(dset.shape, dset2.shape);
 
             if(!flags_equal) {
-                log(verbose_info, "flags for '%s' differ.\n", dset.name);
+                log(verbose_info, "D '%s' flags differ "BYTE_TO_BINARY_PATTERN" < > "
+                    BYTE_TO_BINARY_PATTERN".\n", dset.name, BYTE_TO_BINARY(dset.flags), BYTE_TO_BINARY(dset2.flags));
                 dset_diffs++;
             }
             if(!dtypes_equal) {
-                log(verbose_info, "data types for '%s' differ.\n", dset.name);
+                log(verbose_info, "D '%s' data types differ. %s < > %s\n",
+                    dset.name, sbf_datatype_name(dset.data_type), sbf_datatype_name(dset2.data_type));
                 dset_diffs++;
             }
             if(!shapes_equal) {
-                log(verbose_info, "shapes for '%s' differ.\n", dset.name);
+                log(verbose_info, "D shapes for '%s' differ", dset.name);
                 dset_diffs++;
             }
             if(deep_check && flags_equal && shapes_equal && dtypes_equal) {
@@ -386,16 +397,17 @@ int main(int argc, char *argv[]) {
     extern char *optarg;
     extern int optind;
     bool dump_file = false, list_datasets = false, diff = false;
+    char * e_arg = NULL;
     int c;
 
     opterr = 0;
-    while ((c = getopt (argc, argv, "cdlhv")) != -1)
+    while ((c = getopt (argc, argv, "e:cplhv")) != -1)
         switch (c)
         {
             case 'c':
                 diff = true;
                 break;
-            case 'd':
+            case 'p':
                 dump_file = true;
                 break;
             case 'l':
@@ -405,22 +417,28 @@ int main(int argc, char *argv[]) {
                 usage(argv[0]);
                 break;
             case 'v':
-                GLOBAL_LOG_LEVEL++;
+                if(GLOBAL_LOG_LEVEL < info) GLOBAL_LOG_LEVEL = info;
+                else GLOBAL_LOG_LEVEL++;
+                break;
+            case 'e':
+                eps = strtod(optarg, NULL);
                 break;
             case '?':
-                if(optopt == 'c' || optopt == 'd')
+                if(optopt == 'e')
                     log(error, "Option -%c requires an argument.\n", optopt);
                 else if (isprint(optopt))
                     log(error, "Unknown option -%c.\n", optopt);
                 else
                     log(error, "Unknown option character '\\x%x'.\n", optopt);
-                exit(EXIT_FAILURE);
             default:
                 exit(EXIT_FAILURE);
         }
 
-    log(debug, "flags:\n\tdump_file: %s\n\tlist_datasets: %s\n",
+    log(debug, "command line:\n\tdump_file: %s\n\tlist_datasets: %s\n",
         dump_file ? "true":"false", list_datasets ? "true":"false");
+    log(debug, "\tdiff: %s\n", diff ? "true":"false");
+    log(debug, "\teps: %g\n", eps);
+    log(debug, "\tverbosity: %d\n\n", GLOBAL_LOG_LEVEL);
 
     if(diff) {
         if(optind != (argc - 2)) {
@@ -433,21 +451,13 @@ int main(int argc, char *argv[]) {
         file1.filename = argv[optind]; file2.filename = argv[optind+1];
         sbf_result res;
         res = sbf_open(&file1);
-        if(res != SBF_RESULT_SUCCESS) {
-            exit(EXIT_FAILURE);
-        }
+        SBF_ASSERT_SUCCESSFUL(res);
         res = sbf_open(&file2);
-        if(res != SBF_RESULT_SUCCESS) {
-            exit(EXIT_FAILURE);
-        }
+        SBF_ASSERT_SUCCESSFUL(res);
         res = sbf_read_headers(&file1);
-        if(res != SBF_RESULT_SUCCESS) {
-            exit(EXIT_FAILURE);
-        }
+        SBF_ASSERT_SUCCESSFUL(res);
         res = sbf_read_headers(&file2);
-        if(res != SBF_RESULT_SUCCESS) {
-            exit(EXIT_FAILURE);
-        }
+        SBF_ASSERT_SUCCESSFUL(res);
 
         sbf_size diffs = diff_files(&file1, &file2);
         if(diffs)
@@ -455,13 +465,9 @@ int main(int argc, char *argv[]) {
                 diffs, diffs > 1 ? "s" : "", file1.filename, file2.filename);
 
         res = sbf_close(&file1);
-        if(res != SBF_RESULT_SUCCESS) {
-            exit(EXIT_FAILURE);
-        }
+        SBF_ASSERT_SUCCESSFUL(res);
         res = sbf_close(&file2);
-        if(res != SBF_RESULT_SUCCESS) {
-            exit(EXIT_FAILURE);
-        }
+        SBF_ASSERT_SUCCESSFUL(res);
         exit(diffs);
     }
     else {

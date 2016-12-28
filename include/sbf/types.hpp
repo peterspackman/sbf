@@ -16,8 +16,8 @@ typedef std::complex<float> sbf_complex_float;
 typedef std::complex<double> sbf_complex_double;
 
 constexpr sbf_byte sbf_version_major('0');
-constexpr sbf_byte sbf_version_minor('1');
-constexpr sbf_byte sbf_version_minor_minor('1');
+constexpr sbf_byte sbf_version_minor('2');
+constexpr sbf_byte sbf_version_minor_minor('0');
 
 namespace limits {
 constexpr sbf_size max_dataset_dimensions(8);
