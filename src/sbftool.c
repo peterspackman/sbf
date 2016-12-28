@@ -4,13 +4,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "sbf.h"
 #include <unistd.h>
 #include <complex.h>
-#include <stdarg.h>
 #include <ctype.h>
 #include <math.h>
 #include <inttypes.h>
+#include "sbf.h"
 #define SBFTOOL_VERSION "0.2.0"
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
@@ -67,14 +66,46 @@ void usage(const char * progname) {
     exit(EXIT_SUCCESS);
 }
 
-ptrdiff_t offset_of(sbf_size block_size, bool column_major,
-                    int dims, const sbf_size shape[SBF_MAX_DIM], sbf_size idx[SBF_MAX_DIM]) {
-    va_list ap;
+int_fast8_t get_dataset(const char * name, const sbf_File * file) {
+    int_fast8_t found = -1;
+    for(sbf_byte i = 0; i < file->n_datasets; i++) {
+        if(strncmp(name, file->datasets[i].name, SBF_NAME_LENGTH) == 0) {
+            found = i;
+            log(debug, "Found matching dset : '%s'\n", file->datasets[i].name);
+        }
+    }
+    return found;
+}
+
+bool shape_equal(sbf_size shape1[SBF_MAX_DIM], sbf_size shape2[SBF_MAX_DIM]) {
+    for(sbf_byte i = 0; i < SBF_MAX_DIM; i++) {
+        if(shape1[i] != shape2[i]) return false;
+    }
+    return true;
+}
+
+void increment_index(const sbf_size shape[SBF_MAX_DIM],
+                     sbf_size idx[SBF_MAX_DIM], const sbf_byte dims) {
+    for(int dim = dims -1; dim > -1; dim--) {
+        idx[dim]++;
+        if(idx[dim] == shape[dim]) idx[dim] = 0;
+        else break;
+    }
+}
+
+bool all_zero(sbf_size idx[SBF_MAX_DIM]) {
+    for(int dim = 0; dim < SBF_MAX_DIM; dim++) 
+        if(idx[dim] != 0) return 0;
+    return 1;
+}
+
+ptrdiff_t offset_of(sbf_size block_size, bool column_major, sbf_byte dims,
+                    const sbf_size shape[SBF_MAX_DIM], sbf_size idx[SBF_MAX_DIM]) {
     ptrdiff_t offset = 0;
 
     if(column_major) {
-        for(int i = 0; i < dims; i++) {
-            int product = 1;
+        for(int_fast8_t i = 0; i < dims; i++) {
+            sbf_size product = 1;
             for(int j = 0; j < i; j++) {
                 product = product * shape[j];
             }
@@ -82,8 +113,8 @@ ptrdiff_t offset_of(sbf_size block_size, bool column_major,
         }
     }
     else {
-        for(int i = 0; i < dims; i++) {
-            int product = 1;
+        for(int_fast8_t i = 0; i < dims; i++) {
+            sbf_size product = 1;
             for(int j = i + 1; j < dims; j++) {
                 product = product * shape[j];
             }
@@ -93,47 +124,31 @@ ptrdiff_t offset_of(sbf_size block_size, bool column_major,
     }
     return offset * block_size;
 }
+
 const char * sbf_datatype_name(sbf_byte data_type) {
     switch(data_type) {
-        case SBF_DOUBLE:
-            return "sbf_double";
-        case SBF_INT:
-            return "sbf_integer";
-        case SBF_LONG:
-            return "sbf_long_integer";
-        case SBF_FLOAT:
-            return "sbf_float";
-        case SBF_CFLOAT:
-            return "sbf_complex_float";
-        case SBF_CDOUBLE:
-            return "sbf_complex_double";
-        case SBF_CHAR:
-            return "sbf_character";
-        default:
-            return "sbf_byte";
+        case SBF_DOUBLE: return "sbf_double";
+        case SBF_INT: return "sbf_integer";
+        case SBF_LONG: return "sbf_long_integer";
+        case SBF_FLOAT: return "sbf_float";
+        case SBF_CFLOAT: return "sbf_complex_float";
+        case SBF_CDOUBLE: return "sbf_complex_double";
+        case SBF_CHAR: return "sbf_character";
+        default: return "sbf_byte";
     }
 }
 
 const char * format_string(sbf_byte data_type) {
     switch(data_type) {
-        case SBF_DOUBLE:
-            return "%s% 7.5g%s";
-        case SBF_INT:
-            return "%s% 7d%s";
-        case SBF_LONG:
-            return "%s% 7li%s";
-        case SBF_FLOAT:
-            return "%s% 7.5g%s";
-        case SBF_CFLOAT:
-            return "%s%3.1g%+3.1gi";
-        case SBF_CDOUBLE:
-            return "%s%3.1g%+3.1gi";
-        case SBF_CHAR:
-            return "%s%c%s";
-        default:
-            return "%s%0x %s";
+        case SBF_DOUBLE: return "%s% 7.5g%s";
+        case SBF_INT: return "%s% 7"PRIi32"%s";
+        case SBF_LONG: return "%s% 7"PRIi64"%s";
+        case SBF_FLOAT: return "%s% 7.5g%s";
+        case SBF_CFLOAT: return "%s%3.1g%+3.1gi";
+        case SBF_CDOUBLE: return "%s%3.1g%+3.1gi";
+        case SBF_CHAR: return "%s%c%s";
+        default: return "%s%0x %s";
     }
-
 }
 
 void pretty_print_block(void *data, const char *fmt_string, sbf_data_type dtype) {
@@ -144,10 +159,10 @@ void pretty_print_block(void *data, const char *fmt_string, sbf_data_type dtype)
         suffix="";
     switch(dtype) {
         case(SBF_INT):
-            fprintf(stdout, fmt_string, "", *(int *)(data), suffix);
+            fprintf(stdout, fmt_string, "", *(int32_t *)(data), suffix);
             break;
         case(SBF_LONG):
-            fprintf(stdout, fmt_string, "", *(long int *)(data), suffix);
+            fprintf(stdout, fmt_string, "", *(int64_t *)(data), suffix);
             break;
         case(SBF_DOUBLE):
             fprintf(stdout, fmt_string, "", *(double *)(data), suffix);
@@ -171,21 +186,6 @@ void pretty_print_block(void *data, const char *fmt_string, sbf_data_type dtype)
     }
 }
 
-void increment_index(const sbf_size shape[SBF_MAX_DIM],
-                     sbf_size idx[SBF_MAX_DIM], const sbf_byte dims) {
-    for(int dim = dims -1; dim > -1; dim--) {
-        idx[dim]++;
-        if(idx[dim] == shape[dim]) idx[dim] = 0;
-        else break;
-    }
-}
-
-bool all_zero(sbf_size idx[SBF_MAX_DIM]) {
-    for(int dim = 0; dim < SBF_MAX_DIM; dim++) 
-        if(idx[dim] != 0) return 0;
-    return 1;
-}
-
 void pretty_print_nd(const sbf_DataHeader dset, void *data, const char *fmt_string) {
     sbf_size idx[SBF_MAX_DIM] = {0};
     sbf_byte dims = SBF_GET_DIMENSIONS(dset);
@@ -193,6 +193,7 @@ void pretty_print_nd(const sbf_DataHeader dset, void *data, const char *fmt_stri
     sbf_size cols = dset.shape[dims - 1];
     bool column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
     sbf_size n = 0;
+
     do {
         if((n % rows == 0) && n > 0) {
             fprintf(stdout, "\n");
@@ -206,6 +207,7 @@ void pretty_print_nd(const sbf_DataHeader dset, void *data, const char *fmt_stri
         n++;
         increment_index(dset.shape, idx, dims);
     } while(!all_zero(idx));
+
     fprintf(stdout, "\n");
 }
 
@@ -225,7 +227,7 @@ void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
     fprintf(stdout, "---- %s ----\n", file->filename);
     //TODO add version checking
     fprintf(stdout, "sbf %s\n", "v0.1.1");
-    for(int i = 0; i < file->n_datasets; i++) {
+    for(int_fast8_t i = 0; i < file->n_datasets; i++) {
 
         sbf_DataHeader dset = file->datasets[i];
         fprintf(stdout, "dataset:\t'%s'\n", dset.name);
@@ -244,9 +246,10 @@ void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
         fprintf(stdout, "storage:\t%s major\n", column_major ? "column": "row");
         bool endianness = SBF_CHECK_BIG_ENDIAN_FLAG(dset);
         fprintf(stdout, "endianness:\t%s endian\n", endianness ? "big": "little");
+
         if(dump_all_data) {
             sbf_size data_size = sbf_datatype_size(dset) * sbf_num_blocks(dset);
-            uint8_t data[data_size];
+            sbf_byte data[data_size];
             sbf_result res = sbf_read_dataset(file, dset, data);
             if(res != SBF_RESULT_SUCCESS) {
                 log(error, "Problem reading dataset %s: %s\n", dset.name, strerror(errno));
@@ -259,24 +262,6 @@ void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
         }
         fprintf(stdout, "\n");
     }
-}
-
-bool shape_equal(sbf_size shape1[SBF_MAX_DIM], sbf_size shape2[SBF_MAX_DIM]) {
-    for(sbf_byte i = 0; i < SBF_MAX_DIM; i++) {
-        if(shape1[i] != shape2[i]) return false;
-    }
-    return true;
-}
-
-int get_dataset(const char * name, const sbf_File * file) {
-    int found = -1;
-    for(sbf_byte i = 0; i < file->n_datasets; i++) {
-        if(strncmp(name, file->datasets[i].name, SBF_NAME_LENGTH) == 0) {
-            found = i;
-            log(debug, "Found matching dset : '%s'\n", file->datasets[i].name);
-        }
-    }
-    return found;
 }
 
 bool compare_blocks(void * a, void * b, sbf_data_type dtype) {
@@ -313,10 +298,12 @@ sbf_size diff_datablocks(const sbf_DataHeader dset1, void * data1,
     sbf_size idx[SBF_MAX_DIM] = {0};
     sbf_byte dims = SBF_GET_DIMENSIONS(dset1);
     const char * fmt_string = format_string(dset1.data_type);
+
     do {
         ptrdiff_t offset1 = offset_of(sbf_datatype_size(dset1), cmaj1, dims, dset1.shape, idx);
         ptrdiff_t offset2 = offset_of(sbf_datatype_size(dset2), cmaj2, dims, dset1.shape, idx);
         if(!compare_blocks(data1 + offset1, data2 + offset2, dset1.data_type)) {
+
             if(GLOBAL_LOG_LEVEL >= verbose_info) {
                 log(verbose_info, "D '%s' @(",dset1.name);
                 for(sbf_byte dim = 0; dim < dims; dim++) log(verbose_info, "%s%"PRIu64, (dim ==0)? "":",", idx[dim]);
@@ -341,6 +328,7 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
         log(verbose_info, "Different number of datasets: %d, %d\n", n1, n2);
         return ++file_diffs;
     }
+
     for(sbf_byte i = 0; i < n1;  i++) {
         log(debug, "Checking dataset %d in %s\n", i, file1->filename);
         sbf_DataHeader dset = file1->datasets[i];
@@ -372,8 +360,8 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
             }
             if(deep_check && flags_equal && shapes_equal && dtypes_equal) {
                 sbf_size data_size = sbf_datatype_size(dset) * sbf_num_blocks(dset);
-                uint8_t data1[data_size];
-                uint8_t data2[data_size];
+                sbf_byte data1[data_size];
+                sbf_byte data2[data_size];
                 sbf_result res = sbf_read_dataset(file1, dset, data1);
                 if(res != SBF_RESULT_SUCCESS) {
                     log(error, "Problem reading dataset '%s' in %s: %s\n", 
@@ -498,10 +486,8 @@ int main(int argc, char *argv[]) {
             res = sbf_close(&file);
             if(res != SBF_RESULT_SUCCESS) exit(EXIT_FAILURE);
             
-    }
-
+        }
    
     }
-
     return 0;
 }
