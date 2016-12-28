@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <math.h>
+#include <inttypes.h>
 #define SBFTOOL_VERSION "0.2.0"
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
@@ -197,7 +198,7 @@ void pretty_print_nd(const sbf_DataHeader dset, void *data, const char *fmt_stri
             fprintf(stdout, "\n");
         }
         if(n % (rows * cols) == 0) {
-            for(int i = 0; i < dims - 2; i++) printf("%llu,", idx[i]);
+            for(int i = 0; i < dims - 2; i++) printf("%"PRIu64, idx[i]);
             if(dims > 2) fprintf(stdout, ":,:\n");
         }
         ptrdiff_t offset = offset_of(sbf_datatype_size(dset), column_major, dims, dset.shape, idx);
@@ -229,14 +230,14 @@ void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
         sbf_DataHeader dset = file->datasets[i];
         fprintf(stdout, "dataset:\t'%s'\n", dset.name);
         fprintf(stdout, "dtype:\t\t%s\n", sbf_datatype_name(dset.data_type));
-        fprintf(stdout, "dtype size:\t%llu bit\n", sbf_datatype_size(dset)*8);
+        fprintf(stdout, "dtype size:\t%"PRIu64" bit\n", sbf_datatype_size(dset)*8);
         fprintf(stdout, "flags:\t\t"BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(dset.flags));
         sbf_byte dims = SBF_GET_DIMENSIONS(dset);
         fprintf(stdout, "dimensions:\t%d\n", dims);
         fprintf(stdout, "shape:\t\t");
-        fprintf(stdout, "[%llu", dset.shape[0]);
+        fprintf(stdout, "[%"PRIu64, dset.shape[0]);
         for(sbf_byte dim = 1; dim < dims; dim++) {
-            fprintf(stdout, ", %llu", dset.shape[dim]);
+            fprintf(stdout, ", %"PRIu64, dset.shape[dim]);
         }
         fprintf(stdout, "]\n");
         bool column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
@@ -318,7 +319,7 @@ sbf_size diff_datablocks(const sbf_DataHeader dset1, void * data1,
         if(!compare_blocks(data1 + offset1, data2 + offset2, dset1.data_type)) {
             if(GLOBAL_LOG_LEVEL >= verbose_info) {
                 log(verbose_info, "D '%s' @(",dset1.name);
-                for(sbf_byte dim = 0; dim < dims; dim++) log(verbose_info, "%s%llu", (dim ==0)? "":",", idx[dim]);
+                for(sbf_byte dim = 0; dim < dims; dim++) log(verbose_info, "%s%"PRIu64, (dim ==0)? "":",", idx[dim]);
                 fprintf(stdout, "):");
                 pretty_print_block(data1 + offset1, fmt_string, dset1.data_type);
                 fprintf(stdout, " < >");
@@ -386,7 +387,7 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
                 }
                 dset_diffs = dset_diffs + diff_datablocks(dset, data1, dset2, data2);
             }
-            log(verbose_info, "%llu differences in '%s'\n", dset_diffs, dset.name);
+            log(verbose_info, "%"PRIu64" differences in '%s'\n", dset_diffs, dset.name);
             file_diffs = file_diffs + dset_diffs;
         }
     }
@@ -461,7 +462,7 @@ int main(int argc, char *argv[]) {
 
         sbf_size diffs = diff_files(&file1, &file2);
         if(diffs)
-            log(info, "%llu difference%s between %s and %s\n",
+            log(info, "%"PRIu64" difference%s between %s and %s\n",
                 diffs, diffs > 1 ? "s" : "", file1.filename, file2.filename);
 
         res = sbf_close(&file1);
