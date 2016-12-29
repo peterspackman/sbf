@@ -1,5 +1,5 @@
 #define SBF_VERSION_MAJOR '0'
-#define SBF_VERSION_MINOR '0'
+#define SBF_VERSION_MINOR '2'
 #define SBF_VERSION_MINOR_MINOR '0'
 
 #define SBF_MAX_DIM 8

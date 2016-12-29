@@ -1,22 +1,23 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 #include "sbf.hpp"
+std::string test_filename = "/tmp/sbf_test_cpp.sbf";
 
 TEST_CASE("Open and close files", "[io, headers]") {
     SECTION("for writing") {
-        sbf::File file("/tmp/test_cpp.sbf", sbf::writing);
+        sbf::File file(test_filename, sbf::writing);
         REQUIRE(file.open() == sbf::success);
         REQUIRE(file.close() == sbf::success);
     }
     SECTION("for reading") {
-        sbf::File file("/tmp/test_cpp.sbf", sbf::reading);
+        sbf::File file(test_filename, sbf::reading);
         REQUIRE(file.open() == sbf::success);
         REQUIRE(file.close() == sbf::success);
     }
 }
 
 TEST_CASE("Write to file", "[io, headers]") {
-    sbf::File file("/tmp/test_cpp.sbf", sbf::writing);
+    sbf::File file(test_filename, sbf::writing);
     sbf::sbf_integer ints[1000];
     for (int i = 0; i < 1000; i++) {
         ints[i] = i * i;
@@ -33,7 +34,7 @@ TEST_CASE("Write to file", "[io, headers]") {
 }
 
 TEST_CASE("Read from file", "[io, headers]") {
-    sbf::File file("/tmp/test_cpp.sbf", sbf::reading);
+    sbf::File file(test_filename, sbf::reading);
     sbf::sbf_integer ints[1000];
     for (int i = 0; i < 1000; i++) {
         ints[i] = i * i;

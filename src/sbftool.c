@@ -199,7 +199,7 @@ void pretty_print_nd(const sbf_DataHeader dset, void *data, const char *fmt_stri
             fprintf(stdout, "\n");
         }
         if(n % (rows * cols) == 0) {
-            for(int i = 0; i < dims - 2; i++) printf("%"PRIu64, idx[i]);
+            for(int i = 0; i < dims - 2; i++) printf("%"PRIu64",", idx[i]);
             if(dims > 2) fprintf(stdout, ":,:\n");
         }
         ptrdiff_t offset = offset_of(sbf_datatype_size(dset), column_major, dims, dset.shape, idx);
@@ -320,6 +320,29 @@ sbf_size diff_datablocks(const sbf_DataHeader dset1, void * data1,
     return diffs;
 }
 
+sbf_result load_datasets(sbf_File *file) {
+    //TODO error check
+    for(int_fast8_t i = 0; i < file->n_datasets; i++) {
+        sbf_DataHeader dset = file->datasets[i];
+        file->dataset_pointers[i] = calloc(sbf_datatype_size(dset), sbf_num_blocks(dset));
+        sbf_result res = sbf_read_dataset(file, dset, file->dataset_pointers[i]);
+        if(res != SBF_RESULT_SUCCESS) {
+            log(error, "Problem reading dataset '%s' in %s: %s\n", 
+                dset.name, file->filename, strerror(errno));
+            return res;
+        }
+    }
+    return SBF_RESULT_SUCCESS;
+}
+
+sbf_result cleanup_datasets(sbf_File *file) {
+    //TODO error check
+    for(int_fast8_t i = 0; i < file->n_datasets; i++) {
+        free(file->dataset_pointers[i]);
+    }
+    return SBF_RESULT_SUCCESS;
+}
+
 sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
     sbf_byte n1 = file1->n_datasets; sbf_byte n2 = file2->n_datasets;
     sbf_size file_diffs = 0;
@@ -329,55 +352,54 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
         return ++file_diffs;
     }
 
+    if(deep_check) {
+        load_datasets(file1);
+        load_datasets(file2);
+    }
+
     for(sbf_byte i = 0; i < n1;  i++) {
         log(debug, "Checking dataset %d in %s\n", i, file1->filename);
-        sbf_DataHeader dset = file1->datasets[i];
+        sbf_DataHeader dset1 = file1->datasets[i];
         sbf_size dset_diffs = 0;
-        int dset_found = get_dataset(dset.name, file2);
+        int dset_found = get_dataset(dset1.name, file2);
         if(dset_found == -1) {
-            log(verbose_info, "No matching dataset found for '%s' in %s\n", dset.name, file2->filename);
+            log(verbose_info, "No matching dataset found for '%s' in %s\n",
+                dset1.name, file2->filename);
             file_diffs++;
         }
         else {
             sbf_DataHeader dset2 = file2->datasets[dset_found];
-            bool flags_equal = (dset.flags == dset2.flags);
-            bool dtypes_equal = (dset.data_type == dset2.data_type);
-            bool shapes_equal = shape_equal(dset.shape, dset2.shape);
+            void * data2 = file2->dataset_pointers[i];
+            bool flags_equal = (dset1.flags == dset2.flags);
+            bool dtypes_equal = (dset1.data_type == dset2.data_type);
+            bool shapes_equal = shape_equal(dset1.shape, dset2.shape);
 
             if(!flags_equal) {
                 log(verbose_info, "D '%s' flags differ "BYTE_TO_BINARY_PATTERN" < > "
-                    BYTE_TO_BINARY_PATTERN".\n", dset.name, BYTE_TO_BINARY(dset.flags), BYTE_TO_BINARY(dset2.flags));
+                    BYTE_TO_BINARY_PATTERN".\n", dset1.name,
+                    BYTE_TO_BINARY(dset1.flags), BYTE_TO_BINARY(dset2.flags));
                 dset_diffs++;
             }
             if(!dtypes_equal) {
                 log(verbose_info, "D '%s' data types differ. %s < > %s\n",
-                    dset.name, sbf_datatype_name(dset.data_type), sbf_datatype_name(dset2.data_type));
+                    dset1.name, sbf_datatype_name(dset1.data_type), sbf_datatype_name(dset2.data_type));
                 dset_diffs++;
             }
             if(!shapes_equal) {
-                log(verbose_info, "D shapes for '%s' differ", dset.name);
+                log(verbose_info, "D shapes for '%s' differ", dset1.name);
                 dset_diffs++;
             }
             if(deep_check && flags_equal && shapes_equal && dtypes_equal) {
-                sbf_size data_size = sbf_datatype_size(dset) * sbf_num_blocks(dset);
-                sbf_byte data1[data_size];
-                sbf_byte data2[data_size];
-                sbf_result res = sbf_read_dataset(file1, dset, data1);
-                if(res != SBF_RESULT_SUCCESS) {
-                    log(error, "Problem reading dataset '%s' in %s: %s\n", 
-                        dset.name, file1->filename, strerror(errno));
-                    break;
-                }
-                res = sbf_read_dataset(file2, dset2, data2);
-                if(res != SBF_RESULT_SUCCESS) {
-                    log(error, "Problem reading dataset %s: %s\n", dset.name, strerror(errno));
-                    break;
-                }
-                dset_diffs = dset_diffs + diff_datablocks(dset, data1, dset2, data2);
+                dset_diffs = dset_diffs + diff_datablocks(dset1, file1->dataset_pointers[i],
+                                                          dset2, file2->dataset_pointers[dset_found]);
             }
-            log(verbose_info, "%"PRIu64" differences in '%s'\n", dset_diffs, dset.name);
+            log(verbose_info, "%"PRIu64" differences in '%s'\n", dset_diffs, dset1.name);
             file_diffs = file_diffs + dset_diffs;
         }
+    }
+    if(deep_check) {
+        cleanup_datasets(file1);
+        cleanup_datasets(file2);
     }
     return file_diffs;
 }
@@ -438,25 +460,18 @@ int main(int argc, char *argv[]) {
         sbf_File file1 = sbf_new_file; sbf_File file2 = sbf_new_file;
         file1.mode = SBF_FILE_READONLY; file2.mode = SBF_FILE_READONLY;
         file1.filename = argv[optind]; file2.filename = argv[optind+1];
-        sbf_result res;
-        res = sbf_open(&file1);
-        SBF_ASSERT_SUCCESSFUL(res);
-        res = sbf_open(&file2);
-        SBF_ASSERT_SUCCESSFUL(res);
-        res = sbf_read_headers(&file1);
-        SBF_ASSERT_SUCCESSFUL(res);
-        res = sbf_read_headers(&file2);
-        SBF_ASSERT_SUCCESSFUL(res);
+        SBF_ASSERT_SUCCESSFUL(sbf_open(&file1));
+        SBF_ASSERT_SUCCESSFUL(sbf_open(&file2));
+        SBF_ASSERT_SUCCESSFUL(sbf_read_headers(&file1));
+        SBF_ASSERT_SUCCESSFUL(sbf_read_headers(&file2));
 
         sbf_size diffs = diff_files(&file1, &file2);
         if(diffs)
             log(info, "%"PRIu64" difference%s between %s and %s\n",
                 diffs, diffs > 1 ? "s" : "", file1.filename, file2.filename);
 
-        res = sbf_close(&file1);
-        SBF_ASSERT_SUCCESSFUL(res);
-        res = sbf_close(&file2);
-        SBF_ASSERT_SUCCESSFUL(res);
+        SBF_ASSERT_SUCCESSFUL(sbf_close(&file1));
+        SBF_ASSERT_SUCCESSFUL(sbf_close(&file2));
         exit(diffs);
     }
     else {
@@ -485,7 +500,6 @@ int main(int argc, char *argv[]) {
 
             res = sbf_close(&file);
             if(res != SBF_RESULT_SUCCESS) exit(EXIT_FAILURE);
-            
         }
    
     }
