@@ -26,7 +26,7 @@
 enum log_level {
     error = 0, warning = 1, info = 2, verbose_info = 3, very_verbose_info = 4, debug = 5
 };
-enum log_level GLOBAL_LOG_LEVEL = error;
+enum log_level GLOBAL_LOG_LEVEL = info;
 
 #define log(level, message, ...) \
     do {                                        \
@@ -55,12 +55,12 @@ void usage(const char * progname) {
     "Usage:\n"
     "\tsbftool [-cdl] filename\n"
     "Options:\n"
-        "\t-l\tprint the metadata for dataset(s).\n"
         "\t-d\tspecify a dataset.\n"
         "\t-p\tprint out contents of dataset(s) (implies -l).\n"
         "\t-c\tCompare contents of two sbf files.\n"
         "\t-m\tOnly compare dataset metadata of the two sbf files.\n"
-        "\t-h\tPrint this help message.\n\n",
+        "\t-h\tPrint this help message.\n\n"
+    "By default sbftool simply prints out info about datasets in the file(s) provided.\n",
         SBFTOOL_VERSION, SBF_VERSION);
 
     exit(EXIT_SUCCESS);
@@ -224,7 +224,6 @@ void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_s
 }
 
 void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
-    fprintf(stdout, "---- %s ----\n", file->filename);
     for(int_fast8_t i = 0; i < file->n_datasets; i++) {
 
         sbf_DataHeader dset = file->datasets[i];
@@ -343,6 +342,11 @@ sbf_result cleanup_datasets(sbf_File *file) {
 
 sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
     sbf_byte n1 = file1->n_datasets; sbf_byte n2 = file2->n_datasets;
+    if(n2 > n1) {
+        sbf_File * tmp; sbf_byte n_tmp;
+        tmp = file1; file1 = file2; file2 = tmp;
+        n_tmp = n2; n1 = n2; n2 = n_tmp;
+    }
     sbf_size file_diffs = 0;
     bool deep_check = true;
     if(n1 != n2) {
@@ -410,7 +414,7 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
 int main(int argc, char *argv[]) {
     extern char *optarg;
     extern int optind;
-    bool dump_file = false, list_datasets = false, diff = false;
+    bool dump_file = false, list_datasets = true, diff = false;
     char * e_arg = NULL;
     int c;
     int retcode = 0;
@@ -485,9 +489,13 @@ int main(int argc, char *argv[]) {
             sbf_File file = sbf_new_file;
             file.mode = SBF_FILE_READONLY;
             file.filename = filename;
+            log(info, "Processing '%s'...\n", file.filename);
             sbf_result res;
             SBF_ASSERT_SUCCESSFUL(sbf_open(&file));
-            SBF_ASSERT_SUCCESSFUL(sbf_read_headers(&file));
+            if(sbf_read_headers(&file) != SBF_RESULT_SUCCESS) {
+                retcode = EXIT_FAILURE;
+                continue;
+            }
             if(list_datasets || dump_file) dump_file_as_utf8(&file, dump_file);
             SBF_ASSERT_SUCCESSFUL(sbf_close(&file));
         }

@@ -21,7 +21,7 @@
 #define SBF_VERSION_MAJOR '0'
 #define SBF_VERSION_MINOR '2'
 #define SBF_VERSION_MINOR_MINOR '0'
-#define SBF_COMPATABILITY_VERSION_STRING "020"
+#define SBF_COMPATABILITY_VERSION_STRING "010"
 #define SBF_VERSION "0.2.0"
 
 #define SBF_MAX_DIM 8
@@ -122,7 +122,8 @@ typedef enum {
     SBF_RESULT_WRITE_FAILURE,
     SBF_RESULT_READ_FAILURE,
     SBF_RESULT_NULL_FAILURE,
-    SBF_RESULT_MAX_DATASETS_EXCEEDED_FAILURE
+    SBF_RESULT_MAX_DATASETS_EXCEEDED_FAILURE,
+    SBF_RESULT_INCOMPATIBLE_VERSION
 } sbf_result;
 
 typedef struct {
@@ -209,15 +210,16 @@ sbf_result sbf_close(const sbf_File *file) {
 
 sbf_result sbf_valid_header(const sbf_FileHeader *header) {
     if(strncmp(header->token, "SBF", 3)) {
-        fprintf(stderr, "Invalid token at start of file\n");
+        fprintf(stderr, "Invalid token at start of file: '%c%c%c'\n",
+                header->token[0], header->token[1], header->token[2]);
         return SBF_RESULT_FILE_OPEN_FAILURE;
     }
-    if(strncmp(header->version_string, SBF_COMPATABILITY_VERSION_STRING, 3)) {
-        fprintf(stderr, "Invalid SBF version token: %c%c%c\n",
+    if(strncmp(header->version_string, SBF_COMPATABILITY_VERSION_STRING, 3) < 0) {
+        fprintf(stderr, "Incompatible SBF version: '%c.%c.%c'\n",
                 header->version_string[0],
                 header->version_string[1],
                 header->version_string[2]);
-        return SBF_RESULT_FILE_OPEN_FAILURE;
+        return SBF_RESULT_INCOMPATIBLE_VERSION;
     }
     return SBF_RESULT_SUCCESS;
 }
@@ -379,7 +381,8 @@ sbf_result sbf_read_headers(sbf_File *sbf) {
         sbf_new_file_header; // this gives us token/version at the beginning
     SBF_READ_RAW(&header, sizeof(header), 1, sbf->fp);
     if( (res = sbf_valid_header(&header)) != SBF_RESULT_SUCCESS) {
-        fprintf(stderr, "Failed to find a valid SBF header in '%s'\n", sbf->filename);
+        fprintf(stderr, "File '%s' is %s\n", sbf->filename,
+                (res == SBF_RESULT_INCOMPATIBLE_VERSION) ? "an incompatible SBF version" : "not a valid SBF file.");
         return res;
     }
 
