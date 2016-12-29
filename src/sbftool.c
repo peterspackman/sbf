@@ -71,7 +71,8 @@ int_fast8_t get_dataset(const char * name, const sbf_File * file) {
     for(sbf_byte i = 0; i < file->n_datasets; i++) {
         if(strncmp(name, file->datasets[i].name, SBF_NAME_LENGTH) == 0) {
             found = i;
-            log(debug, "Found matching dset : '%s'\n", file->datasets[i].name);
+            log(debug, "Found matching dataset '%s' in '%s'\n", file->datasets[i].name,
+                    file->filename);
         }
     }
     return found;
@@ -389,10 +390,9 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
             }
             if(!shapes_equal) {
                 log(verbose_info, "D '%s' incompatible shapes: ", dset1.name);
-                log(verbose_info, "%"PRIu64, dset1.shape[0]);
-                for(int_fast8_t i = 1; i < SBF_GET_DIMENSIONS(dset1); i++) log(verbose_info, ", %"PRIu64, dset1.shape[i]);
-                log(verbose_info, " < > %"PRIu64, dset2.shape[0]);
-                for(int_fast8_t i = 1; i < SBF_GET_DIMENSIONS(dset2); i++) log(verbose_info, ", %"PRIu64, dset2.shape[i]);
+                for(int_fast8_t i = 0; i < SBF_GET_DIMENSIONS(dset1); i++) log(verbose_info, "[%"PRIu64"]", dset1.shape[i]);
+                log(verbose_info, " %s ", "< >");
+                for(int_fast8_t i = 0; i < SBF_GET_DIMENSIONS(dset2); i++) log(verbose_info, "[%"PRIu64"]", dset2.shape[i]);
                 log(verbose_info, "%s\n", "");
                 dset_diffs++;
             }
@@ -400,7 +400,7 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
                 dset_diffs = dset_diffs + diff_datablocks(dset1, file1->dataset_pointers[i],
                                                           dset2, file2->dataset_pointers[dset_found]);
             }
-            log(verbose_info, "%"PRIu64" differences in '%s'\n", dset_diffs, dset1.name);
+            log(verbose_info, "%"PRIu64" differences in dataset '%s'\n", dset_diffs, dset1.name);
             file_diffs = file_diffs + dset_diffs;
         }
     }
