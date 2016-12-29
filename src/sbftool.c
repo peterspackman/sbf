@@ -192,22 +192,22 @@ void pretty_print_nd(const sbf_DataHeader dset, void *data, const char *fmt_stri
     sbf_size rows = dset.shape[dims - 2];
     sbf_size cols = dset.shape[dims - 1];
     bool column_major = SBF_CHECK_COLUMN_MAJOR_FLAG(dset);
+    bool print_columns = (dims == 1) && (dset.data_type != SBF_CHAR);
     sbf_size n = 0;
-
     do {
-        if((n % rows == 0) && n > 0) {
-            fprintf(stdout, "\n");
-        }
         if(n % (rows * cols) == 0) {
             for(int i = 0; i < dims - 2; i++) printf("%"PRIu64",", idx[i]);
             if(dims > 2) fprintf(stdout, ":,:\n");
         }
-        ptrdiff_t offset = offset_of(sbf_datatype_size(dset), column_major, dims, dset.shape, idx);
+        ptrdiff_t offset = offset_of(sbf_datatype_size(dset),
+                                     column_major, dims, dset.shape, idx);
         pretty_print_block(data + offset, fmt_string, dset.data_type);
         n++;
+        if(((n % rows == 0)) || print_columns) {
+            fprintf(stdout, "\n");
+        }
         increment_index(dset.shape, idx, dims);
     } while(!all_zero(idx));
-
     fprintf(stdout, "\n");
 }
 
@@ -225,8 +225,6 @@ void pretty_print_data(const sbf_DataHeader dset, void * data, const char *fmt_s
 
 void dump_file_as_utf8(sbf_File * file, bool dump_all_data) {
     fprintf(stdout, "---- %s ----\n", file->filename);
-    //TODO add version checking
-    fprintf(stdout, "sbf %s\n", "v0.1.1");
     for(int_fast8_t i = 0; i < file->n_datasets; i++) {
 
         sbf_DataHeader dset = file->datasets[i];
@@ -328,7 +326,8 @@ sbf_result load_datasets(sbf_File *file) {
         sbf_result res = sbf_read_dataset(file, dset, file->dataset_pointers[i]);
         if(res != SBF_RESULT_SUCCESS) {
             log(error, "Problem reading dataset '%s' in %s: %s\n", 
-                dset.name, file->filename, strerror(errno));
+                dset.name, file->filename,
+                (res == SBF_RESULT_NULL_FAILURE) ? "failure allocating memory" : strerror(errno));
             return res;
         }
     }
@@ -336,7 +335,6 @@ sbf_result load_datasets(sbf_File *file) {
 }
 
 sbf_result cleanup_datasets(sbf_File *file) {
-    //TODO error check
     for(int_fast8_t i = 0; i < file->n_datasets; i++) {
         free(file->dataset_pointers[i]);
     }
@@ -349,7 +347,7 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
     bool deep_check = true;
     if(n1 != n2) {
         log(verbose_info, "Different number of datasets: %d, %d\n", n1, n2);
-        return ++file_diffs;
+        ++file_diffs;
     }
 
     if(deep_check) {
@@ -357,6 +355,7 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
         load_datasets(file2);
     }
 
+    // TODO process longest file first
     for(sbf_byte i = 0; i < n1;  i++) {
         log(debug, "Checking dataset %d in %s\n", i, file1->filename);
         sbf_DataHeader dset1 = file1->datasets[i];
@@ -370,26 +369,30 @@ sbf_size diff_files(sbf_File * file1, sbf_File * file2) {
         else {
             sbf_DataHeader dset2 = file2->datasets[dset_found];
             void * data2 = file2->dataset_pointers[i];
-            bool flags_equal = (dset1.flags == dset2.flags);
+            bool dims_equal = (SBF_GET_DIMENSIONS(dset1) == SBF_GET_DIMENSIONS(dset2));
             bool dtypes_equal = (dset1.data_type == dset2.data_type);
             bool shapes_equal = shape_equal(dset1.shape, dset2.shape);
 
-            if(!flags_equal) {
-                log(verbose_info, "D '%s' flags differ "BYTE_TO_BINARY_PATTERN" < > "
-                    BYTE_TO_BINARY_PATTERN".\n", dset1.name,
-                    BYTE_TO_BINARY(dset1.flags), BYTE_TO_BINARY(dset2.flags));
+            if(!dims_equal) {
+                log(verbose_info, "D '%s' incompatible dimensions: %d < > %d\n",
+                    dset1.name, SBF_GET_DIMENSIONS(dset1), SBF_GET_DIMENSIONS(dset2));
                 dset_diffs++;
             }
             if(!dtypes_equal) {
-                log(verbose_info, "D '%s' data types differ. %s < > %s\n",
+                log(verbose_info, "D '%s' incompatible data types: %s < > %s\n",
                     dset1.name, sbf_datatype_name(dset1.data_type), sbf_datatype_name(dset2.data_type));
                 dset_diffs++;
             }
             if(!shapes_equal) {
-                log(verbose_info, "D shapes for '%s' differ", dset1.name);
+                log(verbose_info, "D '%s' incompatible shapes: ", dset1.name);
+                log(verbose_info, "%"PRIu64, dset1.shape[0]);
+                for(int_fast8_t i = 1; i < SBF_GET_DIMENSIONS(dset1); i++) log(verbose_info, ", %"PRIu64, dset1.shape[i]);
+                log(verbose_info, " < > %"PRIu64, dset2.shape[0]);
+                for(int_fast8_t i = 1; i < SBF_GET_DIMENSIONS(dset2); i++) log(verbose_info, ", %"PRIu64, dset2.shape[i]);
+                log(verbose_info, "%s\n", "");
                 dset_diffs++;
             }
-            if(deep_check && flags_equal && shapes_equal && dtypes_equal) {
+            if(deep_check && dims_equal && shapes_equal && dtypes_equal) {
                 dset_diffs = dset_diffs + diff_datablocks(dset1, file1->dataset_pointers[i],
                                                           dset2, file2->dataset_pointers[dset_found]);
             }
@@ -410,6 +413,7 @@ int main(int argc, char *argv[]) {
     bool dump_file = false, list_datasets = false, diff = false;
     char * e_arg = NULL;
     int c;
+    int retcode = 0;
 
     opterr = 0;
     while ((c = getopt (argc, argv, "e:cplhv")) != -1)
@@ -445,12 +449,6 @@ int main(int argc, char *argv[]) {
                 exit(EXIT_FAILURE);
         }
 
-    log(debug, "command line:\n\tdump_file: %s\n\tlist_datasets: %s\n",
-        dump_file ? "true":"false", list_datasets ? "true":"false");
-    log(debug, "\tdiff: %s\n", diff ? "true":"false");
-    log(debug, "\teps: %g\n", eps);
-    log(debug, "\tverbosity: %d\n\n", GLOBAL_LOG_LEVEL);
-
     if(diff) {
         if(optind != (argc - 2)) {
             log(error, "Option -c requires two filenames e.g.: %s %s\n",
@@ -466,20 +464,21 @@ int main(int argc, char *argv[]) {
         SBF_ASSERT_SUCCESSFUL(sbf_read_headers(&file2));
 
         sbf_size diffs = diff_files(&file1, &file2);
+        // If we found differences in the file, print the number out
         if(diffs)
             log(info, "%"PRIu64" difference%s between %s and %s\n",
                 diffs, diffs > 1 ? "s" : "", file1.filename, file2.filename);
 
         SBF_ASSERT_SUCCESSFUL(sbf_close(&file1));
         SBF_ASSERT_SUCCESSFUL(sbf_close(&file2));
-        exit(diffs);
+        // and return it as an exit value
+        retcode = diffs;
     }
     else {
         if(optind == argc) {
             log(error, "Expecting a filename e.g.: %s\n", "file.sbf");
             usage(argv[0]);
         }
-
         // try to read all of the remaining arguments as sbf files
         for (int index = optind; index < argc; index++) {
             char * filename = argv[index];
@@ -487,21 +486,12 @@ int main(int argc, char *argv[]) {
             file.mode = SBF_FILE_READONLY;
             file.filename = filename;
             sbf_result res;
-            res = sbf_open(&file);
-
-            if(res != SBF_RESULT_SUCCESS) exit(EXIT_FAILURE);
-
-            res = sbf_read_headers(&file);
-            if(res != SBF_RESULT_SUCCESS) {
-                log(error, "Could not read headers: %s\n", strerror(errno));
-                exit(EXIT_FAILURE);
-            }
+            SBF_ASSERT_SUCCESSFUL(sbf_open(&file));
+            SBF_ASSERT_SUCCESSFUL(sbf_read_headers(&file));
             if(list_datasets || dump_file) dump_file_as_utf8(&file, dump_file);
-
-            res = sbf_close(&file);
-            if(res != SBF_RESULT_SUCCESS) exit(EXIT_FAILURE);
+            SBF_ASSERT_SUCCESSFUL(sbf_close(&file));
         }
    
     }
-    return 0;
+    return retcode;
 }
