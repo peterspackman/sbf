@@ -15,6 +15,10 @@ SBF_DATAHEADER_SIZE = struct.calcsize(SBF_DATAHEADER_FMT)
 _unpack_fileheader = struct.Struct(SBF_FILEHEADER_FMT).unpack_from
 _unpack_dataheader = struct.Struct(SBF_DATAHEADER_FMT).unpack_from
 
+def _c_str_to_str(bytes_arr):
+    return (bytes_arr.split(b'\0')[0]).decode('utf-8')
+
+
 types = {
     0: np.uint8,
     1: np.int32,
@@ -37,7 +41,7 @@ class Dataset:
 
     @staticmethod
     def from_struct_and_shape(struct, shape):
-        string_name = (struct[0].split(b'\0'))[0].decode('utf-8')
+        string_name = _c_str_to_str(struct[0])
         return Dataset(string_name,
                        struct[1],
                        types[struct[2]],
@@ -47,7 +51,7 @@ class Dataset:
         n = np.product(self._shape)
         if self._dtype == 'S1' and self._shape.ndim == 1:
             data = f.read(n)
-            self._data = struct.unpack('={}s'.format(n), data)[0].decode('utf-8')
+            self._data = _c_str_to_str(struct.unpack('={}s'.format(n), data)[0])
         else:
             self._data = np.fromfile(f, dtype=self._dtype,
                                      count=n)
