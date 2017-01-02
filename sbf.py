@@ -2,6 +2,7 @@
 from pathlib import Path
 import numpy as np
 import struct
+from enum import Enum
 
 __author__ = "Peter Spackman <peterspackman@fastmail.com>"
 __version__ = "0.2.0"
@@ -19,15 +20,29 @@ def _c_str_to_str(bytes_arr):
     return (bytes_arr.split(b'\0')[0]).decode('utf-8')
 
 
-types = {
-    0: np.uint8,
-    1: np.int32,
-    2: np.int64,
-    3: np.float32,
-    4: np.float64,
-    5: np.complex64,
-    6: np.complex128,
-    7: np.dtype('S1')
+
+class SBFType(Enum):
+    sbf_byte = 0
+    sbf_integer = 1
+    sbf_long = 2
+    sbf_float = 3
+    sbf_double = 4
+    sbf_complex_float = 5
+    sbf_complex_double = 6
+    sbf_char = 7
+
+    def as_numpy(self):
+        return _sbf_to_numpy_type[self]
+
+_sbf_to_numpy_type = {
+    SBFType.sbf_byte: np.uint8,
+    SBFType.sbf_integer: np.int32,
+    SBFType.sbf_long: np.int64,
+    SBFType.sbf_float: np.float32,
+    SBFType.sbf_double: np.float64,
+    SBFType.sbf_complex_float: np.complex64,
+    SBFType.sbf_complex_double: np.complex128,
+    SBFType.sbf_char: np.dtype('S1')
 }
 
 class Dataset:
@@ -44,7 +59,7 @@ class Dataset:
         string_name = _c_str_to_str(struct[0])
         return Dataset(string_name,
                        struct[1],
-                       types[struct[2]],
+                       SBFType(struct[2]),
                        shape)
 
     def _read_data(self, f):
@@ -53,7 +68,7 @@ class Dataset:
             data = f.read(n)
             self._data = _c_str_to_str(struct.unpack('={}s'.format(n), data)[0])
         else:
-            self._data = np.fromfile(f, dtype=self._dtype,
+            self._data = np.fromfile(f, dtype=self.datatype.as_numpy(),
                                      count=n)
             kwargs = {}
             if self._column_major: kwargs['order'] = 'F'
@@ -68,11 +83,26 @@ class Dataset:
     def data(self):
         return self._data
 
+    @property
+    def datatype(self):
+        return self._dtype
+
     def __str__(self):
-        return 'Dataset({}, {}, {})'.format(self._name, repr(self._dtype), self._shape)
+        return "Dataset('{}', {}, {})".format(self.name, self.datatype.name, self._shape)
 
     def __repr__(self):
         return str(self)
+
+    def pretty_print(self):
+        np.set_printoptions(threshold=10)
+        print("dataset:\t'{}'".format(self.name))
+        print("dtype:\t\t{}".format(self.datatype.name))
+        print("dtype size:\t{} bit".format(np.dtype(self.datatype.as_numpy()).itemsize * 8))
+        print("flags:\t\t{:08b}".format(self._flags))
+        print("dimensions:\t{}".format(self._shape.ndim))
+        print("shape:\t\t{}".format(self._shape))
+        print("storage:\t{}".format("column major" if self._column_major else "row major"))
+        print("endianness:\t{}\n".format("little endian"))
 
 
 class File:
@@ -124,4 +154,4 @@ if __name__ == '__main__':
         t2 = time.process_time()
         print('Time: {:.5}ms'.format((t2 - t1)*1000))
         for dset in f.datasets():
-            print(dset)
+            dset.pretty_print()
