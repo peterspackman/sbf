@@ -93,8 +93,8 @@ class Dataset:
     def __repr__(self):
         return str(self)
 
-    def pretty_print(self):
-        np.set_printoptions(threshold=10)
+    def pretty_print(self, show_data=False, **kwargs):
+        np.set_printoptions(**kwargs)
         print("dataset:\t'{}'".format(self.name))
         print("dtype:\t\t{}".format(self.datatype.name))
         print("dtype size:\t{} bit".format(np.dtype(self.datatype.as_numpy()).itemsize * 8))
@@ -103,6 +103,10 @@ class Dataset:
         print("shape:\t\t{}".format(self._shape))
         print("storage:\t{}".format("column major" if self._column_major else "row major"))
         print("endianness:\t{}\n".format("little endian"))
+        if show_data:
+            print('-----------------')
+            print(self.data)
+            print('-----------------')
 
 
 class File:
@@ -145,8 +149,14 @@ class File:
 if __name__ == '__main__':
     import time
     import sys
-    np.set_printoptions(threshold=10)
-    for path in sys.argv[1:]:
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('paths', nargs='*')
+    parser.add_argument('-p', '--print-datasets', action='store_true', default=False,
+                        help="Print out the contents of datasets")
+    args = parser.parse_args()
+    print(args)
+    for path in args.paths:
         print(path)
         t1 = time.process_time()
         f = File(path)
@@ -154,4 +164,4 @@ if __name__ == '__main__':
         t2 = time.process_time()
         print('Time: {:.5}ms'.format((t2 - t1)*1000))
         for dset in f.datasets():
-            dset.pretty_print()
+            dset.pretty_print(show_data=args.print_datasets)
