@@ -64,7 +64,7 @@ class Dataset:
 
     def _read_data(self, f):
         n = np.product(self._shape)
-        if self._dtype == 'S1' and self._shape.ndim == 1:
+        if self.datatype == 'S1' and self.dimensions == 1:
             data = f.read(n)
             self._data = _c_str_to_str(struct.unpack('={}s'.format(n), data)[0])
         else:
@@ -87,6 +87,10 @@ class Dataset:
     def datatype(self):
         return self._dtype
 
+    @property
+    def dimensions(self):
+        return self._shape.ndim
+
     def __str__(self):
         return "Dataset('{}', {}, {})".format(self.name, self.datatype.name, self._shape)
 
@@ -99,7 +103,7 @@ class Dataset:
         print("dtype:\t\t{}".format(self.datatype.name))
         print("dtype size:\t{} bit".format(np.dtype(self.datatype.as_numpy()).itemsize * 8))
         print("flags:\t\t{:08b}".format(self._flags))
-        print("dimensions:\t{}".format(self._shape.ndim))
+        print("dimensions:\t{}".format(self.dimensions))
         print("shape:\t\t{}".format(self._shape))
         print("storage:\t{}".format("column major" if self._column_major else "row major"))
         print("endianness:\t{}\n".format("little endian"))
@@ -154,8 +158,9 @@ if __name__ == '__main__':
     parser.add_argument('paths', nargs='*')
     parser.add_argument('-p', '--print-datasets', action='store_true', default=False,
                         help="Print out the contents of datasets")
+    parser.add_argument('-c', '--compare-datasets', action='store_true', default=False,
+                        help='Compare the contents of the SBF datasets (like the unix diff tool)')
     args = parser.parse_args()
-    print(args)
     for path in args.paths:
         print(path)
         t1 = time.process_time()
