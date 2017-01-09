@@ -270,7 +270,7 @@ subroutine get_sbf_Dataset_string(this, name, data, errflag)
     class(sbf_File), intent(in) :: this
     character(len=:), allocatable, intent(out) :: data
     integer, intent(out), optional :: errflag
-    character :: example_value
+    character(c_char) :: example_value
     type(sbf_Dataset) :: dset
     integer :: error = SBF_RESULT_SUCCESS, ind
     
@@ -401,7 +401,7 @@ end function
 
 subroutine sbf_add_dataset(this, dset)
     class(sbf_File), intent(inout) :: this
-    class(sbf_Dataset), intent(in) :: dset
+    type(sbf_Dataset), intent(in) :: dset
     ! increment the store of the number of datasets
     this%n_datasets = this%n_datasets + 1
     ! assign it
