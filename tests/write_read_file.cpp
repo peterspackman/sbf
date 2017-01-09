@@ -35,13 +35,15 @@ TEST_CASE("Write to file", "[io, headers]") {
 
 TEST_CASE("Read from file", "[io, headers]") {
     sbf::File file(test_filename, sbf::reading);
-    sbf::sbf_integer ints[1000];
-    for (int i = 0; i < 1000; i++) {
-        ints[i] = i * i;
-    }
     REQUIRE(file.open() == sbf::success);
     REQUIRE(file.read_headers() == sbf::success);
     REQUIRE(file.n_datasets() == 1);
+    REQUIRE(file.read_datablocks() == sbf::success);
+    auto dset = file.get_dataset("integer_dataset");
+    sbf::sbf_integer * ints = dset.data_as<sbf::sbf_integer>();
+    for (int i = 0; i < 1000; i++) {
+        REQUIRE(ints[i] == i * i);
+    }
     // res = file.add_dataset<sbf_integer, 1000>("integer_dataset", ints);
     REQUIRE(file.close() == sbf::success);
 }
