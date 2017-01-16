@@ -243,7 +243,7 @@ end function
 function new_sbf_Dataset_string(name, data) result(res)
     character(len=*) :: name, data
     type(sbf_Dataset) :: res
-    integer :: length, name_length, i
+    integer :: name_length, i
     integer(sbf_byte) :: dims
     name_length = len(name)
     ! assign the character array from the given string
@@ -327,13 +327,15 @@ end function
 subroutine sbf_dh_get_dims(this, res)
     type(sbf_DataHeader), intent(in) :: this
     integer(sbf_byte) :: res
-    res = iand(this%flags, SBF_DIMENSION_BITS)
+    integer(sbf_byte) :: dimension_bits = SBF_DIMENSION_BITS
+    res = iand(this%flags, dimension_bits)
 end subroutine
 
 subroutine sbf_dh_set_dims(this, dims)
     type(sbf_DataHeader), intent(inout) :: this
     integer(sbf_byte) :: dims
-    this%flags = ior(this%flags, iand(dims, SBF_DIMENSION_BITS))
+    integer(sbf_byte) :: dimension_bits = SBF_DIMENSION_BITS
+    this%flags = ior(this%flags, iand(dims, dimension_bits))
 end subroutine
 
 subroutine write_dataset_header(this, unit)
@@ -353,7 +355,7 @@ end subroutine
 
 subroutine read_dataset_header(this, unit)
     class(sbf_Dataset), intent(inout) :: this
-    integer :: unit, i
+    integer :: unit
     ! placeholder wrapper in case we want to change behaviour in the future
     read(unit) this%header
 end subroutine
@@ -402,8 +404,9 @@ end function
 subroutine sbf_add_dataset(this, dset)
     class(sbf_File), intent(inout) :: this
     type(sbf_Dataset), intent(in) :: dset
+    integer(sbf_byte) :: incr = 1
     ! increment the store of the number of datasets
-    this%n_datasets = this%n_datasets + 1
+    this%n_datasets = incr + this%n_datasets
     ! assign it
     this%datasets(this%n_datasets) = dset
 end subroutine
