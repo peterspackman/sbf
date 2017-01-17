@@ -2,11 +2,12 @@
 from pathlib import Path
 import numpy as np
 import struct
-from enum import Enum
+import ctypes
+from collections import OrderedDict
+from enum import IntEnum
 
 __author__ = "Peter Spackman <peterspackman@fastmail.com>"
-__version__ = "0.2.0"
-
+__version__ = "0.2.0" 
 SBF_COLUMN_MAJOR_FLAG = 0b01000000
 SBF_FILEHEADER_FMT = "=3s3sb"
 SBF_FILEHEADER_SIZE = struct.calcsize(SBF_FILEHEADER_FMT)
@@ -15,13 +16,24 @@ SBF_DATAHEADER_FMT = "=62sbb"
 SBF_DATAHEADER_SIZE = struct.calcsize(SBF_DATAHEADER_FMT)
 _unpack_fileheader = struct.Struct(SBF_FILEHEADER_FMT).unpack_from
 _unpack_dataheader = struct.Struct(SBF_DATAHEADER_FMT).unpack_from
+_pack_fileheader = struct.Struct(SBF_FILEHEADER_FMT).pack
+_pack_dataheader = struct.Struct(SBF_DATAHEADER_FMT).pack
 
 def _c_str_to_str(bytes_arr):
     return (bytes_arr.split(b'\0')[0]).decode('utf-8')
 
+_OUTPUT_FORMAT_STRING = """dataset:\t'{self.name}'
+dtype:\t\t{self.datatype.name}
+dtype size:\t{datatype_width}
+flags:\t\t{self._flags:08b}
+dimensions:\t{self.dimensions}
+shape:\t\t{self._shape}
+storage:\t{storage}
+endianness:\t{endianness}{data_sep}{data}{data_sep}
+"""
 
 
-class SBFType(Enum):
+class SBFType(IntEnum):
     sbf_byte = 0
     sbf_integer = 1
     sbf_long = 2
@@ -64,7 +76,7 @@ class Dataset:
 
     def _read_data(self, f):
         n = np.product(self._shape)
-        if self.datatype == 'S1' and self.dimensions == 1:
+        if self.datatype == SBFType.sbf_char and self.dimensions == 1:
             data = f.read(n)
             self._data = _c_str_to_str(struct.unpack('={}s'.format(n), data)[0])
         else:
@@ -74,6 +86,11 @@ class Dataset:
             if self._column_major: kwargs['order'] = 'F'
             self._data = self._data.reshape(self._shape, **kwargs)
                                             
+    def _write_header(self, f):
+        struct
+
+    def _write_datablock(self, f):
+        np.save(f, self.data)
     
     @property
     def name(self):
@@ -89,7 +106,12 @@ class Dataset:
 
     @property
     def dimensions(self):
-        return self._shape.ndim
+        return self._shape.size
+
+    def _sbf_shape(self):
+        arr = np.zeros(8, dtype=np.uint64)
+        arr[:self.dimensions] = self._shape[:]
+        return arr
 
     def __str__(self):
         return "Dataset('{}', {}, {})".format(self.name, self.datatype.name, self._shape)
@@ -99,19 +121,14 @@ class Dataset:
 
     def pretty_print(self, show_data=False, **kwargs):
         np.set_printoptions(**kwargs)
-        print("dataset:\t'{}'".format(self.name))
-        print("dtype:\t\t{}".format(self.datatype.name))
-        print("dtype size:\t{} bit".format(np.dtype(self.datatype.as_numpy()).itemsize * 8))
-        print("flags:\t\t{:08b}".format(self._flags))
-        print("dimensions:\t{}".format(self.dimensions))
-        print("shape:\t\t{}".format(self._shape))
-        print("storage:\t{}".format("column major" if self._column_major else "row major"))
-        print("endianness:\t{}\n".format("little endian"))
-        if show_data:
-            print('-----------------')
-            print(self.data)
-            print('-----------------')
-
+        sep = '\n----------------\n' if show_data else ''
+        data = self.data if show_data else ''
+        output = _OUTPUT_FORMAT_STRING.format(self=self,
+                datatype_width=np.dtype(self.datatype.as_numpy()).itemsize * 8,
+                storage="column major" if self._column_major else "row major",
+                endianness="little endian",
+                data_sep=sep, data=data)
+        print(output)
 
 class File:
 
@@ -119,13 +136,18 @@ class File:
         if not isinstance(path, Path):
             path = Path(path)
         self._path = path 
-        self._datasets = {}
+        self._datasets = OrderedDict()
         self._n_datasets = 0
 
     def read(self):
         with self._path.open("rb") as f:
             self._read_headers(f)
             self._read_data(f)
+
+    def write(self, filename):
+        with Path(filename).open('wb') as f:
+            self._write_headers(f)
+            self._write_data(f)
 
     def _read_headers(self, f):
         file_header_raw = f.read(SBF_FILEHEADER_SIZE)
@@ -139,10 +161,31 @@ class File:
             shape = np.fromfile(f, dtype=np.uint64, count=8)
             dataset = Dataset.from_struct_and_shape(data_header, shape)
             self._datasets[dataset.name] = dataset
+
+    def _write_headers(self, f):
+        print(SBF_FILEHEADER_SIZE)
+        file_header = _pack_fileheader(b'SBF', b'020', self._n_datasets)
+        f.write(file_header)
+        for dataset in self._datasets.values():
+            flags = dataset._flags
+            if flags | SBF_COLUMN_MAJOR_FLAG:
+                flags &= ~(SBF_COLUMN_MAJOR_FLAG)
+            data_header = _pack_dataheader(dataset.name.encode('utf-8'),
+                                           flags, 
+                                           int(dataset._dtype))
+            f.write(data_header)
+            dataset._sbf_shape().tofile(f)
             
     def _read_data(self, f):
         for name, dataset in self._datasets.items():
             dataset._read_data(f)
+
+    def _write_data(self, f):
+        for dataset in self._datasets.values():
+            if dataset.datatype == SBFType.sbf_char and dataset.dimensions == 1:
+                np.fromstring(dataset.data, dtype=np.uint8, count=dataset._shape[0]).tofile(f)
+            else:
+                dataset.data.tofile(f)
 
     def __getitem__(self, key):
         return self._datasets[key]
