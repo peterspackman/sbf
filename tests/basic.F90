@@ -14,7 +14,6 @@ program basic
     use sbf
     use basic_test
     implicit none
-    logical :: success
     if(.not. test_header()) then
         call EXIT(1)
     end if

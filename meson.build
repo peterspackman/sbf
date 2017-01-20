@@ -1,4 +1,4 @@
-project('sbf', ['c', 'cpp'], 
+project('sbf', ['c', 'cpp', 'fortran'], 
         version: '0.2.0', default_options: ['c_std=c11', 'cpp_std=c++11'])
 
 conf_data = configuration_data()

@@ -3,10 +3,8 @@ program write_read_file
     implicit none
     character(len=256) :: filename = "/tmp/sbf_test_fortran.sbf"
     type(sbf_Dataset) :: dset
-    type(sbf_DataHeader) :: header
     type(sbf_File) :: data_file_write, data_file_read
     integer :: i,j,k,l,m
-    character(sbf_byte), dimension(:), allocatable :: bytes
     integer(sbf_integer), dimension(10) :: data = [(i*i, i=0,9)]
     integer(sbf_long), dimension(2,2,2,2,2) :: ldata
     complex(sbf_float), dimension(5,5) :: cdata
