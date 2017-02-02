@@ -24,6 +24,11 @@ setup(name='sbf',
       long_description=sbf_long_description,
       keywords = ['binary', 'file format', 'data'],
       classifiers=sbf_classifiers,
+      entry_points={
+          'console_scripts': [
+              'sbfpytool=sbf:main',
+          ],
+      },
       license='GPLv3',
       install_requires=['numpy'],
 )

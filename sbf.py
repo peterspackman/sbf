@@ -207,8 +207,7 @@ class File:
     def datasets(self):
         return (d for d in self._datasets.values())
 
-if __name__ == '__main__':
-    import time
+def main():
     import sys
     import argparse
     parser = argparse.ArgumentParser()
@@ -223,10 +222,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     for path in args.paths:
         print(path)
-        t1 = time.process_time()
         f = File(path)
         f.read()
-        t2 = time.process_time()
-        print('Time: {:.5}ms'.format((t2 - t1)*1000))
         for dset in f.datasets():
             dset.pretty_print(show_data=args.print_datasets)
