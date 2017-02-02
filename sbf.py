@@ -7,7 +7,7 @@ from collections import OrderedDict
 from enum import IntEnum
 
 __author__ = "Peter Spackman <peterspackman@fastmail.com>"
-__version__ = "0.2.0" 
+__version__ = "0.2.0"
 SBF_COLUMN_MAJOR_FLAG = 0b01000000
 SBF_FILEHEADER_FMT = "=3s3sb"
 SBF_FILEHEADER_SIZE = struct.calcsize(SBF_FILEHEADER_FMT)
@@ -19,9 +19,6 @@ _unpack_dataheader = struct.Struct(SBF_DATAHEADER_FMT).unpack_from
 _pack_fileheader = struct.Struct(SBF_FILEHEADER_FMT).pack
 _pack_dataheader = struct.Struct(SBF_DATAHEADER_FMT).pack
 
-def _c_str_to_str(bytes_arr):
-    return (bytes_arr.split(b'\0')[0]).decode('utf-8')
-
 _OUTPUT_FORMAT_STRING = """dataset:\t'{self.name}'
 dtype:\t\t{self.datatype.name}
 dtype size:\t{datatype_width}
@@ -31,6 +28,10 @@ shape:\t\t{self._shape}
 storage:\t{storage}
 endianness:\t{endianness}{data_sep}{data}{data_sep}
 """
+
+
+def bytes2str(bytes_arr):
+    return (bytes_arr.split(b'\0')[0]).decode('utf-8')
 
 
 class SBFType(IntEnum):
@@ -57,7 +58,9 @@ _sbf_to_numpy_type = {
     SBFType.sbf_char: np.dtype('S1')
 }
 
+
 class Dataset:
+    """Corresponds to a datset inside an sbf file"""
     def __init__(self, name, flags, dtype, shape):
         self._name = name
         self._dtype = dtype
@@ -68,7 +71,7 @@ class Dataset:
 
     @staticmethod
     def from_struct_and_shape(struct, shape):
-        string_name = _c_str_to_str(struct[0])
+        string_name = bytes2str(struct[0])
         return Dataset(string_name,
                        struct[1],
                        SBFType(struct[2]),
@@ -78,20 +81,21 @@ class Dataset:
         n = np.product(self._shape)
         if self.datatype == SBFType.sbf_char and self.dimensions == 1:
             data = f.read(n)
-            self._data = _c_str_to_str(struct.unpack('={}s'.format(n), data)[0])
+            self._data = bytes2str(struct.unpack('={}s'.format(n), data)[0])
         else:
             self._data = np.fromfile(f, dtype=self.datatype.as_numpy(),
                                      count=n)
             kwargs = {}
-            if self._column_major: kwargs['order'] = 'F'
+            if self._column_major:
+                kwargs['order'] = 'F'
             self._data = self._data.reshape(self._shape, **kwargs)
-                                            
+
     def _write_header(self, f):
         struct
 
     def _write_datablock(self, f):
         np.save(f, self.data)
-    
+
     @property
     def name(self):
         return self._name
@@ -114,28 +118,35 @@ class Dataset:
         return arr
 
     def __str__(self):
-        return "Dataset('{}', {}, {})".format(self.name, self.datatype.name, self._shape)
+        return "Dataset('{}', {}, {})".format(
+                self.name, self.datatype.name, self._shape)
 
     def __repr__(self):
         return str(self)
+
+    def is_string(self):
+        return (self.datatype == SBFType.sbf_char and
+                self.dimensions == 1)
 
     def pretty_print(self, show_data=False, **kwargs):
         np.set_printoptions(**kwargs)
         sep = '\n----------------\n' if show_data else ''
         data = self.data if show_data else ''
-        output = _OUTPUT_FORMAT_STRING.format(self=self,
+        output = _OUTPUT_FORMAT_STRING.format(
+                self=self,
                 datatype_width=np.dtype(self.datatype.as_numpy()).itemsize * 8,
                 storage="column major" if self._column_major else "row major",
                 endianness="little endian",
                 data_sep=sep, data=data)
         print(output)
 
+
 class File:
 
     def __init__(self, path, access_mode='r'):
         if not isinstance(path, Path):
             path = Path(path)
-        self._path = path 
+        self._path = path
         self._datasets = OrderedDict()
         self._n_datasets = 0
 
@@ -151,7 +162,7 @@ class File:
 
     def _read_headers(self, f):
         file_header_raw = f.read(SBF_FILEHEADER_SIZE)
-        assert(file_header_raw) 
+        assert(file_header_raw)
         file_header = _unpack_fileheader(file_header_raw)
         self._n_datasets = file_header[2]
         for i in range(self._n_datasets):
@@ -170,20 +181,23 @@ class File:
             flags = dataset._flags
             if flags | SBF_COLUMN_MAJOR_FLAG:
                 flags &= ~(SBF_COLUMN_MAJOR_FLAG)
-            data_header = _pack_dataheader(dataset.name.encode('utf-8'),
-                                           flags, 
-                                           int(dataset._dtype))
+            data_header = _pack_dataheader(
+                    dataset.name.encode('utf-8'),
+                    flags,
+                    int(dataset._dtype))
             f.write(data_header)
             dataset._sbf_shape().tofile(f)
-            
+
     def _read_data(self, f):
         for name, dataset in self._datasets.items():
             dataset._read_data(f)
 
     def _write_data(self, f):
         for dataset in self._datasets.values():
-            if dataset.datatype == SBFType.sbf_char and dataset.dimensions == 1:
-                np.fromstring(dataset.data, dtype=np.uint8, count=dataset._shape[0]).tofile(f)
+            if dataset.is_string():
+                np.fromstring(dataset.data,
+                              dtype=np.uint8,
+                              count=dataset._shape[0]).tofile(f)
             else:
                 dataset.data.tofile(f)
 
@@ -199,10 +213,13 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('paths', nargs='*')
-    parser.add_argument('-p', '--print-datasets', action='store_true', default=False,
+    parser.add_argument('-p', '--print-datasets',
+                        action='store_true', default=False,
                         help="Print out the contents of datasets")
-    parser.add_argument('-c', '--compare-datasets', action='store_true', default=False,
-                        help='Compare the contents of the SBF datasets (like the unix diff tool)')
+    parser.add_argument('-c', '--compare-datasets',
+                        action='store_true', default=False,
+                        help='Compare the contents of the SBF datasets'
+                             '(like the unix diff tool)')
     args = parser.parse_args()
     for path in args.paths:
         print(path)
