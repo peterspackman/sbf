@@ -75,6 +75,9 @@ _numpy_to_sbf_type = {v: k for k, v in _sbf_to_numpy_type.items()}
 class Flags:
     """Wrapper around the byte of flags per dataset, storing information
     about endianness, storage order and number of dimensions
+
+    Keyword arguments
+    binary -- integer/binary value of the flags (default 0b0000000)
     """
     column_major_bit = 0b01000000
     dimension_bits = 0b00001111
@@ -94,24 +97,29 @@ class Flags:
 
     @property
     def column_major(self):
-        return self.binary & self.column_major_bit
+        return bool(self.binary & self.column_major_bit)
 
     def set_column_major(value):
         self.binary |= (value & self.column_major_bit)
 
     def __repr__(self):
-        return 'Flags(dims={})'
+        return "Flags(D={d}, C={c})".format(
+                d=self.dimensions,
+                c=self.column_major)
 
 
 class Dataset:
-    """Corresponds to a dataset inside an sbf file
+    """Corresponds to a dataset inside an sbf file,
+    consisting of a header, and a binary blob
     
     Arguments:
-        name -- the name of this dataset
+    name -- the identifier of this dataset
+    data -- numpy array of data to store
+
     Keyword arguments:
-        flags -- manually set the flags
-        dtype -- manually set the datatype
-        shape -- manually set the shape
+    flags -- manually set the flags
+    dtype -- manually set the datatype
+    shape -- manually set the shape
     """
     def __init__(self, name, data, flags=None, dtype=None, shape=None):
         data = np.array(data)
@@ -137,15 +145,6 @@ class Dataset:
     @staticmethod
     def empty():
         return Dataset('', [])
-
-    @staticmethod
-    def from_name_flags_dtype_shape(name, flags, dtype, shape):
-        self = Dataset.empty_dataset()
-        self._name = name
-        self._dtype = dtype
-        self._flags = flags
-        self._data = None
-        self._shape = shape[np.nonzero(shape)]
 
     @staticmethod
     def _from_header(struct, shape):
