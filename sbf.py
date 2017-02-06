@@ -8,11 +8,10 @@ from enum import IntEnum
 
 __author__ = "Peter Spackman <peterspackman@fastmail.com>"
 __version__ = "0.2.0"
-SBF_COLUMN_MAJOR_FLAG = 0b01000000
-SBF_DIMENSION_BITS = 0b00001111
 SBF_FILEHEADER_FMT = "=3s3sb"
 SBF_FILEHEADER_SIZE = struct.calcsize(SBF_FILEHEADER_FMT)
 # this is everything except the last part of the dataheader
+# which is the shape array
 SBF_DATAHEADER_FMT = "=62sbb"
 SBF_DATAHEADER_SIZE = struct.calcsize(SBF_DATAHEADER_FMT)
 _unpack_fileheader = struct.Struct(SBF_FILEHEADER_FMT).unpack_from
@@ -23,7 +22,7 @@ _pack_dataheader = struct.Struct(SBF_DATAHEADER_FMT).pack
 _OUTPUT_FORMAT_STRING = """dataset:\t'{self.name}'
 dtype:\t\t{self.datatype.name}
 dtype size:\t{datatype_width}
-flags:\t\t{self._flags:08b}
+flags:\t\t{self.flags.binary:08b}
 dimensions:\t{self.dimensions}
 shape:\t\t{self._shape}
 storage:\t{storage}
@@ -73,9 +72,35 @@ _sbf_to_numpy_type = {
 _numpy_to_sbf_type = {v: k for k, v in _sbf_to_numpy_type.items()}
 
 
-def flags_set_dimensions(flags, dims):
-    flags |= (dims & SBF_DIMENSION_BITS)
-    return flags
+class Flags:
+    """Wrapper around the byte of flags per dataset, storing information
+    about endianness, storage order and number of dimensions
+    """
+    column_major_bit = 0b01000000
+    dimension_bits = 0b00001111
+    def __init__(self, binary=None):
+        if binary:
+            self.binary = binary
+        else:
+            self.binary = 0
+
+    @property
+    def dimensions(self):
+        return self.binary & self.dimension_bits
+
+    def set_dimensions(self, dims):
+        self.binary &= ~(self.dimension_bits)
+        self.binary |= (dims & self.dimension_bits)
+
+    @property
+    def column_major(self):
+        return self.binary & self.column_major_bit
+
+    def set_column_major(value):
+        self.binary |= (value & self.column_major_bit)
+
+    def __repr__(self):
+        return 'Flags(dims={})'
 
 
 class Dataset:
@@ -94,20 +119,20 @@ class Dataset:
         self._name = name
         self._dtype = SBFType.from_numpy_type(data.dtype)
         self._shape = np.array(data.shape)
-        self._flags = flags_set_dimensions(0, self._shape.size)
+        self._flags = Flags()
+        self._flags.set_dimensions(self._shape.size)
         if flags:
             self._flags = flags
-        self._column_major = self._flags & SBF_COLUMN_MAJOR_FLAG
 
     def set_data(self, data):
         data = np.array(data)
         self._data = data
         self._dtype = SBFType.from_numpy_type(data.dtype)
         self._shape = np.array(data.shape)
-        self._flags = flags_set_dimensions(0, self._shape.size)
+        self._flags = Flags()
+        self._flags.set_dimensions(self._shape.size)
         if flags:
             self._flags = flags
-        self._column_major = self._flags & SBF_COLUMN_MAJOR_FLAG
 
     @staticmethod
     def empty():
@@ -119,7 +144,6 @@ class Dataset:
         self._name = name
         self._dtype = dtype
         self._flags = flags
-        self._column_major = flags & SBF_COLUMN_MAJOR_FLAG
         self._data = None
         self._shape = shape[np.nonzero(shape)]
 
@@ -131,8 +155,7 @@ class Dataset:
         dset = Dataset.empty()
         dset._name = name
         dset._dtype = dtype
-        dset._flags = flags
-        dset._column_major = flags & SBF_COLUMN_MAJOR_FLAG
+        dset._flags = Flags(flags)
         dset._data = None
         dset._shape = shape[np.nonzero(shape)]
         return dset
@@ -146,7 +169,7 @@ class Dataset:
             self._data = np.fromfile(f, dtype=self.datatype.as_numpy(),
                                      count=n)
             kwargs = {}
-            if self._column_major:
+            if self.flags.column_major:
                 kwargs['order'] = 'F'
             self._data = self._data.reshape(self._shape, **kwargs)
 
@@ -163,6 +186,10 @@ class Dataset:
     @property
     def data(self):
         return self._data
+
+    @property
+    def flags(self):
+        return self._flags
 
     @property
     def datatype(self):
@@ -195,7 +222,7 @@ class Dataset:
         output = _OUTPUT_FORMAT_STRING.format(
                 self=self,
                 datatype_width=np.dtype(self.datatype.as_numpy()).itemsize * 8,
-                storage="column major" if self._column_major else "row major",
+                storage="column major" if self.flags.column_major else "row major",
                 endianness="little endian",
                 data_sep=sep, data=data)
         print(output)
@@ -238,11 +265,11 @@ class File:
         f.write(file_header)
         for dataset in self._datasets.values():
             flags = dataset._flags
-            if flags | SBF_COLUMN_MAJOR_FLAG:
-                flags &= ~(SBF_COLUMN_MAJOR_FLAG)
+            if flags.column_major:
+                flags.set_column_major(False)
             data_header = _pack_dataheader(
                     dataset.name.encode('utf-8'),
-                    flags,
+                    flags.binary,
                     int(dataset._dtype))
             f.write(data_header)
             dataset._sbf_shape().tofile(f)
