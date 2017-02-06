@@ -9,6 +9,7 @@ from enum import IntEnum
 __author__ = "Peter Spackman <peterspackman@fastmail.com>"
 __version__ = "0.2.0"
 SBF_COLUMN_MAJOR_FLAG = 0b01000000
+SBF_DIMENSION_BITS = 0b00001111
 SBF_FILEHEADER_FMT = "=3s3sb"
 SBF_FILEHEADER_SIZE = struct.calcsize(SBF_FILEHEADER_FMT)
 # this is everything except the last part of the dataheader
@@ -30,9 +31,16 @@ endianness:\t{endianness}{data_sep}{data}{data_sep}
 """
 
 
+def read_file(filepath):
+    f = File(filepath)
+    f.read()
+    return f
+
 def bytes2str(bytes_arr):
     return (bytes_arr.split(b'\0')[0]).decode('utf-8')
 
+class InvalidDatasetError(Exception):
+    pass
 
 class SBFType(IntEnum):
     sbf_byte = 0
@@ -47,21 +55,67 @@ class SBFType(IntEnum):
     def as_numpy(self):
         return _sbf_to_numpy_type[self]
 
+    @staticmethod
+    def from_numpy_type(numpy_type):
+        return _numpy_to_sbf_type[numpy_type]
+
 _sbf_to_numpy_type = {
-    SBFType.sbf_byte: np.uint8,
-    SBFType.sbf_integer: np.int32,
-    SBFType.sbf_long: np.int64,
-    SBFType.sbf_float: np.float32,
-    SBFType.sbf_double: np.float64,
-    SBFType.sbf_complex_float: np.complex64,
-    SBFType.sbf_complex_double: np.complex128,
+    SBFType.sbf_byte: np.dtype('uint8'),
+    SBFType.sbf_integer: np.dtype('int32'),
+    SBFType.sbf_long: np.dtype('int64'),
+    SBFType.sbf_float: np.dtype('float32'),
+    SBFType.sbf_double: np.dtype('float64'),
+    SBFType.sbf_complex_float: np.dtype('complex64'),
+    SBFType.sbf_complex_double: np.dtype('complex128'),
     SBFType.sbf_char: np.dtype('S1')
 }
 
+_numpy_to_sbf_type = {v: k for k, v in _sbf_to_numpy_type.items()}
+
+
+def flags_set_dimensions(flags, dims):
+    flags |= (dims & SBF_DIMENSION_BITS)
+    return flags
+
 
 class Dataset:
-    """Corresponds to a datset inside an sbf file"""
-    def __init__(self, name, flags, dtype, shape):
+    """Corresponds to a dataset inside an sbf file
+    
+    Arguments:
+        name -- the name of this dataset
+    Keyword arguments:
+        flags -- manually set the flags
+        dtype -- manually set the datatype
+        shape -- manually set the shape
+    """
+    def __init__(self, name, data, flags=None, dtype=None, shape=None):
+        data = np.array(data)
+        self._data = data
+        self._name = name
+        self._dtype = SBFType.from_numpy_type(data.dtype)
+        self._shape = np.array(data.shape)
+        self._flags = flags_set_dimensions(0, self._shape.size)
+        if flags:
+            self._flags = flags
+        self._column_major = self._flags & SBF_COLUMN_MAJOR_FLAG
+
+    def set_data(self, data):
+        data = np.array(data)
+        self._data = data
+        self._dtype = SBFType.from_numpy_type(data.dtype)
+        self._shape = np.array(data.shape)
+        self._flags = flags_set_dimensions(0, self._shape.size)
+        if flags:
+            self._flags = flags
+        self._column_major = self._flags & SBF_COLUMN_MAJOR_FLAG
+
+    @staticmethod
+    def empty():
+        return Dataset('', [])
+
+    @staticmethod
+    def from_name_flags_dtype_shape(name, flags, dtype, shape):
+        self = Dataset.empty_dataset()
         self._name = name
         self._dtype = dtype
         self._flags = flags
@@ -70,12 +124,18 @@ class Dataset:
         self._shape = shape[np.nonzero(shape)]
 
     @staticmethod
-    def from_struct_and_shape(struct, shape):
-        string_name = bytes2str(struct[0])
-        return Dataset(string_name,
-                       struct[1],
-                       SBFType(struct[2]),
-                       shape)
+    def _from_header(struct, shape):
+        name = bytes2str(struct[0])
+        flags = struct[1]
+        dtype = SBFType(struct[2])
+        dset = Dataset.empty()
+        dset._name = name
+        dset._dtype = dtype
+        dset._flags = flags
+        dset._column_major = flags & SBF_COLUMN_MAJOR_FLAG
+        dset._data = None
+        dset._shape = shape[np.nonzero(shape)]
+        return dset
 
     def _read_data(self, f):
         n = np.product(self._shape)
@@ -143,7 +203,7 @@ class Dataset:
 
 class File:
 
-    def __init__(self, path, access_mode='r'):
+    def __init__(self, path):
         if not isinstance(path, Path):
             path = Path(path)
         self._path = path
@@ -155,8 +215,8 @@ class File:
             self._read_headers(f)
             self._read_data(f)
 
-    def write(self, filename):
-        with Path(filename).open('wb') as f:
+    def write(self):
+        with self._path.open('wb') as f:
             self._write_headers(f)
             self._write_data(f)
 
@@ -170,11 +230,10 @@ class File:
             assert(data_header_raw)
             data_header = _unpack_dataheader(data_header_raw)
             shape = np.fromfile(f, dtype=np.uint64, count=8)
-            dataset = Dataset.from_struct_and_shape(data_header, shape)
+            dataset = Dataset._from_header(data_header, shape)
             self._datasets[dataset.name] = dataset
 
     def _write_headers(self, f):
-        print(SBF_FILEHEADER_SIZE)
         file_header = _pack_fileheader(b'SBF', b'020', self._n_datasets)
         f.write(file_header)
         for dataset in self._datasets.values():
@@ -203,6 +262,16 @@ class File:
 
     def __getitem__(self, key):
         return self._datasets[key]
+
+    def __setitem__(self, key, item):
+        if key in self._datasets:
+            self._datasets[key].set_data(item)
+        else:
+            self._n_datasets += 1
+            self._datasets[key] = Dataset(key, item)
+
+    def add_dataset(self, name, data):
+        self.__setitem__(name, data)
 
     def datasets(self):
         return (d for d in self._datasets.values())
