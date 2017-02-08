@@ -2,7 +2,6 @@
 from pathlib import Path
 import numpy as np
 import struct
-import ctypes
 from collections import OrderedDict
 from enum import IntEnum
 
@@ -35,11 +34,14 @@ def read_file(filepath):
     f.read()
     return f
 
+
 def bytes2str(bytes_arr):
     return (bytes_arr.split(b'\0')[0]).decode('utf-8')
 
+
 class InvalidDatasetError(Exception):
     pass
+
 
 class SBFType(IntEnum):
     sbf_byte = 0
@@ -57,6 +59,7 @@ class SBFType(IntEnum):
     @staticmethod
     def from_numpy_type(numpy_type):
         return _numpy_to_sbf_type[numpy_type]
+
 
 _sbf_to_numpy_type = {
     SBFType.sbf_byte: np.dtype('uint8'),
@@ -81,6 +84,7 @@ class Flags:
     """
     column_major_bit = 0b01000000
     dimension_bits = 0b00001111
+
     def __init__(self, binary=None):
         if binary:
             self.binary = binary
@@ -99,7 +103,7 @@ class Flags:
     def column_major(self):
         return bool(self.binary & self.column_major_bit)
 
-    def set_column_major(value):
+    def set_column_major(self, value):
         self.binary |= (value & self.column_major_bit)
 
     def __repr__(self):
@@ -111,7 +115,7 @@ class Flags:
 class Dataset:
     """Corresponds to a dataset inside an sbf file,
     consisting of a header, and a binary blob
-    
+
     Arguments:
     name -- the identifier of this dataset
     data -- numpy array of data to store
@@ -132,7 +136,7 @@ class Dataset:
         if flags:
             self._flags = flags
 
-    def set_data(self, data):
+    def set_data(self, data, flags=None):
         data = np.array(data)
         self._data = data
         self._dtype = SBFType.from_numpy_type(data.dtype)
@@ -221,7 +225,8 @@ class Dataset:
         output = _OUTPUT_FORMAT_STRING.format(
                 self=self,
                 datatype_width=np.dtype(self.datatype.as_numpy()).itemsize * 8,
-                storage="column major" if self.flags.column_major else "row major",
+                storage="column major" if
+                        self.flags.column_major else "row major",
                 endianness="little endian",
                 data_sep=sep, data=data)
         print(output)
@@ -302,8 +307,8 @@ class File:
     def datasets(self):
         return (d for d in self._datasets.values())
 
+
 def main():
-    import sys
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('paths', nargs='*')
