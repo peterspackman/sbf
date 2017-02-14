@@ -36,7 +36,7 @@ before_script:
 
 script:
     - mkdir build && cd build
-    - cmake .. -D WITH_SBF_TESTS=YES
+    - cmake .. -DWITH_SBF_TESTS=YES
     - make
     - ctest -C WITH_SBF_TESTS
 
