@@ -23,7 +23,7 @@ TEST_CASE("Write to file", "[io, headers]") {
         ints[i] = i * i;
     }
     REQUIRE(file.open() == sbf::success);
-    sbf::sbf_dimensions shape{0};
+    sbf::sbf_dimensions shape{{0}};
     shape[0] = 1000;
     sbf::Dataset dset("integer_dataset", shape, sbf::SBF_INT, reinterpret_cast<void *>(ints));
     REQUIRE(file.add_dataset(dset) == sbf::success);
