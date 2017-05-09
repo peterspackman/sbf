@@ -1,9 +1,10 @@
-# SBF module
-from pathlib import Path
-import numpy as np
-import struct
+""" SBF module
+"""
 from collections import OrderedDict
 from enum import IntEnum
+from pathlib import Path
+import struct
+import numpy as np
 
 __author__ = "Peter Spackman <peterspackman@fastmail.com>"
 __version__ = "0.2.0"
@@ -13,10 +14,10 @@ SBF_FILEHEADER_SIZE = struct.calcsize(SBF_FILEHEADER_FMT)
 # which is the shape array
 SBF_DATAHEADER_FMT = "=62sbb"
 SBF_DATAHEADER_SIZE = struct.calcsize(SBF_DATAHEADER_FMT)
-_unpack_fileheader = struct.Struct(SBF_FILEHEADER_FMT).unpack_from
-_unpack_dataheader = struct.Struct(SBF_DATAHEADER_FMT).unpack_from
-_pack_fileheader = struct.Struct(SBF_FILEHEADER_FMT).pack
-_pack_dataheader = struct.Struct(SBF_DATAHEADER_FMT).pack
+_UNPACK_FILEHEADER = struct.Struct(SBF_FILEHEADER_FMT).unpack_from
+_UNPACK_DATAHEADER = struct.Struct(SBF_DATAHEADER_FMT).unpack_from
+_PACK_FILEHEADER = struct.Struct(SBF_FILEHEADER_FMT).pack
+_PACK_DATAHEADER = struct.Struct(SBF_DATAHEADER_FMT).pack
 
 _OUTPUT_FORMAT_STRING = """dataset:\t'{self.name}'
 dtype:\t\t{self.datatype.name}
@@ -32,9 +33,9 @@ endianness:\t{endianness}{data_sep}{data}{data_sep}
 def read_file(filepath):
     """Helper method to read an SBF file from a given filepath
     """
-    f = File(filepath)
-    f.read()
-    return f
+    sbf_file = File(filepath)
+    sbf_file.read()
+    return sbf_file
 
 
 def bytes2str(bytes_arr):
@@ -45,10 +46,12 @@ def bytes2str(bytes_arr):
 
 
 class InvalidDatasetError(Exception):
+    """Simple name wrapper for SBF dataset errors"""
     pass
 
 
 class SBFType(IntEnum):
+    """ Integer storage value of different SBF types """
     sbf_byte = 0
     sbf_integer = 1
     sbf_long = 2
@@ -59,14 +62,16 @@ class SBFType(IntEnum):
     sbf_char = 7
 
     def as_numpy(self):
-        return _sbf_to_numpy_type[self]
+        """Express this data type as a numpy type"""
+        return _SBF_NUMPY_TYPE_MAP[self]
 
     @staticmethod
     def from_numpy_type(numpy_type):
-        return _numpy_to_sbf_type[numpy_type]
+        """Get the relevant SBF type for a given numpy type"""
+        return _NUMPY_SBF_TYPE_MAP[numpy_type]
 
 
-_sbf_to_numpy_type = {
+_SBF_NUMPY_TYPE_MAP = {
     SBFType.sbf_byte: np.dtype('uint8'),
     SBFType.sbf_integer: np.dtype('int32'),
     SBFType.sbf_long: np.dtype('int64'),
@@ -77,7 +82,7 @@ _sbf_to_numpy_type = {
     SBFType.sbf_char: np.dtype('S1')
 }
 
-_numpy_to_sbf_type = {v: k for k, v in _sbf_to_numpy_type.items()}
+_NUMPY_SBF_TYPE_MAP = {v: k for k, v in _SBF_NUMPY_TYPE_MAP.items()}
 
 
 class Flags:
@@ -102,7 +107,7 @@ class Flags:
     column_major_bit = 0b01000000
     dimension_bits = 0b00001111
 
-    def __init__(self, *, binary=0, 
+    def __init__(self, *, binary=0,
                  column_major=False,
                  dimensions=0):
 
@@ -110,35 +115,43 @@ class Flags:
         self.set_column_major(column_major)
         self.set_dimensions(dimensions)
         self.binary = binary
-            
+
     @property
     def dimensions(self):
+        """The dimensions of the dataset as specified in this sbf_byte of flags"""
         return self.binary & Flags.dimension_bits
 
     def set_dimensions(self, dims):
+        """Set the dimensions of the dataset as specified in this sbf_byte of flags"""
         self.clear_bits(Flags.dimension_bits)
         self.set_bits(dims & Flags.dimension_bits)
 
     @property
     def column_major(self):
+        """Is the dataset is stored as column major
+        as specified in this sbf_byte of flags?"""
         return bool(self.binary & Flags.column_major_bit)
 
     def set_column_major(self, value):
+        """Set whether the dataset is stored as column major
+        as specified in this sbf_byte of flags."""
         if value:
             self.set_bits(Flags.column_major_bit)
         else:
             self.clear_bits(Flags.column_major_bit)
 
     def set_bits(self, mask):
+        """Helper method to set bits based on a mask"""
         self.binary |= mask
 
     def clear_bits(self, mask):
+        """Helper method to clear bits based on a mask"""
         self.binary &= ~mask
 
     def __repr__(self):
         return "Flags(dim={d}, col={c})".format(
-                d=self.dimensions,
-                c=self.column_major)
+            d=self.dimensions,
+            c=self.column_major)
 
 
 class Dataset:
@@ -158,13 +171,24 @@ class Dataset:
         data = np.array(data)
         self._data = data
         self._name = name
-        self._dtype = SBFType.from_numpy_type(data.dtype)
-        self._shape = np.array(data.shape)
+
+        if dtype is not None:
+            self._dtype = dtype
+        else:
+            self._dtype = SBFType.from_numpy_type(data.dtype)
+
+        if shape is not None:
+            self._shape = np.array(shape)
+        else:
+            self._shape = np.array(data.shape)
+
         self._flags = Flags(dimensions=self._shape.size)
         if flags:
             self._flags = flags
 
     def set_data(self, data, flags=None):
+        """Assign the data stored in this dataset to be the array-like `data`.
+        """
         data = np.array(data)
         self._data = data
         self._dtype = SBFType.from_numpy_type(data.dtype)
@@ -173,94 +197,104 @@ class Dataset:
         if flags:
             self._flags = flags
 
+    def set_name(self, name):
+        """Set the name of this dataset"""
+        self._name = name
+
     @staticmethod
     def empty():
+        """Create an empty dataset, with no name"""
         return Dataset('', [])
 
     @staticmethod
-    def _from_header(struct, shape):
-        name = bytes2str(struct[0])
-        flags = struct[1]
-        dtype = SBFType(struct[2])
-        dset = Dataset.empty()
-        dset._name = name
-        dset._dtype = dtype
-        dset._flags = Flags(binary=flags)
-        dset._data = None
-        dset._shape = shape[np.nonzero(shape)]
+    def from_header(header_struct, shape):
+        """Create an empty dataset, based on a SBFDataHeader"""
+        name = bytes2str(header_struct[0])
+        flags = header_struct[1]
+        dtype = SBFType(header_struct[2])
+        dset = Dataset(name, None, flags=Flags(binary=flags),
+                       dtype=dtype, shape=shape[np.nonzero(shape)])
         return dset
 
-    def _read_data(self, f):
-        n = np.product(self._shape)
+    def read_data(self, buf):
+        """Read the raw data from a given buffer"""
+        num_bytes = np.product(self._shape)
         if self.datatype == SBFType.sbf_char and self.dimensions == 1:
-            data = f.read(n)
-            self._data = bytes2str(struct.unpack('={}s'.format(n), data)[0])
+            data = buf.read(num_bytes)
+            self._data = bytes2str(struct.unpack('={}s'.format(num_bytes), data)[0])
         else:
-            self._data = np.fromfile(f, dtype=self.datatype.as_numpy(),
-                                     count=n)
+            self._data = np.fromfile(buf, dtype=self.datatype.as_numpy(),
+                                     count=num_bytes)
             kwargs = {}
             if self.flags.column_major:
                 kwargs['order'] = 'F'
             self._data = self._data.reshape(self._shape, **kwargs)
 
-    def _write_header(self, f):
-        struct
+    def _write_header(self, buf):
+        pass
 
-    def _write_datablock(self, f):
-        np.save(f, self.data)
+    def _write_datablock(self, buf):
+        np.save(buf, self.data)
 
     @property
     def name(self):
+        """The name of this dataset"""
         return self._name
 
     @property
     def data(self):
+        """The data contained in this dataset"""
         return self._data
 
     @property
     def flags(self):
+        """The flags describing this dataset"""
         return self._flags
 
     @property
     def datatype(self):
+        """The datatype describing this dataset"""
         return self._dtype
 
     @property
     def dimensions(self):
+        """The dimensionality of this dataset"""
         return self._shape.size
 
-    def _sbf_shape(self):
+    def sbf_shape(self):
+        """Return the shape of this dataset in SBF format"""
         arr = np.zeros(8, dtype=np.uint64)
         arr[:self.dimensions] = self._shape[:]
         return arr
 
     def __str__(self):
         return "Dataset('{}', {}, {})".format(
-                self.name, self.datatype.name, self._shape)
+            self.name, self.datatype.name, self._shape)
 
     def __repr__(self):
         return str(self)
 
     def is_string(self):
+        """Is this dataset a string datatype?"""
         return (self.datatype == SBFType.sbf_char and
                 self.dimensions == 1)
 
     def pretty_print(self, show_data=False, **kwargs):
+        """Print out the dataset in a text format"""
         np.set_printoptions(**kwargs)
         sep = '\n----------------\n' if show_data else ''
         data = self.data if show_data else ''
         output = _OUTPUT_FORMAT_STRING.format(
-                self=self,
-                datatype_width=np.dtype(self.datatype.as_numpy()).itemsize * 8,
-                storage="column major" if
-                        self.flags.column_major else "row major",
-                endianness="little endian",
-                data_sep=sep, data=data)
+            self=self,
+            datatype_width=np.dtype(self.datatype.as_numpy()).itemsize * 8,
+            storage="column major" if self.flags.column_major else "row major",
+            endianness="little endian",
+            data_sep=sep, data=data)
         print(output)
 
 
 class File:
-
+    """An SBF file object """
     def __init__(self, path):
         if not isinstance(path, Path):
             path = Path(path)
@@ -269,56 +303,58 @@ class File:
         self._n_datasets = 0
 
     def read(self):
-        with self._path.open("rb") as f:
-            self._read_headers(f)
-            self._read_data(f)
+        """Read the data contained in this file"""
+        with self._path.open("rb") as buf:
+            self._read_headers(buf)
+            self._read_data(buf)
 
     def write(self):
-        with self._path.open('wb') as f:
-            self._write_headers(f)
-            self._write_data(f)
+        """Write the data contained in this file to the specified path"""
+        with self._path.open('wb') as buf:
+            self._write_headers(buf)
+            self._write_data(buf)
 
-    def _read_headers(self, f):
-        file_header_raw = f.read(SBF_FILEHEADER_SIZE)
-        assert(file_header_raw)
-        file_header = _unpack_fileheader(file_header_raw)
+    def _read_headers(self, buf):
+        file_header_raw = buf.read(SBF_FILEHEADER_SIZE)
+        assert file_header_raw
+        file_header = _UNPACK_FILEHEADER(file_header_raw)
         self._n_datasets = file_header[2]
-        for i in range(self._n_datasets):
-            data_header_raw = f.read(SBF_DATAHEADER_SIZE)
-            assert(data_header_raw)
-            data_header = _unpack_dataheader(data_header_raw)
-            shape = np.fromfile(f, dtype=np.uint64, count=8)
-            dataset = Dataset._from_header(data_header, shape)
+        for _ in range(self._n_datasets):
+            data_header_raw = buf.read(SBF_DATAHEADER_SIZE)
+            assert data_header_raw
+            data_header = _UNPACK_DATAHEADER(data_header_raw)
+            shape = np.fromfile(buf, dtype=np.uint64, count=8)
+            dataset = Dataset.from_header(data_header, shape)
             self._datasets[dataset.name] = dataset
 
-    def _write_headers(self, f):
-        file_header = _pack_fileheader(b'SBF', b'020', self._n_datasets)
-        f.write(file_header)
+    def _write_headers(self, buf):
+        file_header = _PACK_FILEHEADER(b'SBF', b'020', self._n_datasets)
+        buf.write(file_header)
         for dataset in self._datasets.values():
-            flags = dataset._flags
+            flags = dataset.flags
             # if we're writing a file, unset the column major bit as
             # numpy arrays are stored row major
             if flags.column_major:
                 flags.set_column_major(False)
-            data_header = _pack_dataheader(
-                    dataset.name.encode('utf-8'),
-                    flags.binary,
-                    int(dataset._dtype))
-            f.write(data_header)
-            dataset._sbf_shape().tofile(f)
+            data_header = _PACK_DATAHEADER(
+                dataset.name.encode('utf-8'),
+                flags.binary,
+                int(dataset.datatype))
+            buf.write(data_header)
+            dataset.sbf_shape().tofile(buf)
 
-    def _read_data(self, f):
-        for name, dataset in self._datasets.items():
-            dataset._read_data(f)
+    def _read_data(self, buf):
+        for dataset in self._datasets.values():
+            dataset.read_data(buf)
 
-    def _write_data(self, f):
+    def _write_data(self, buf):
         for dataset in self._datasets.values():
             if dataset.is_string():
                 np.fromstring(dataset.data,
                               dtype=np.uint8,
-                              count=dataset._shape[0]).tofile(f)
+                              count=dataset.shape[0]).tofile(buf)
             else:
-                dataset.data.tofile(f)
+                dataset.data.tofile(buf)
 
     def __getitem__(self, key):
         return self._datasets[key]
@@ -331,13 +367,16 @@ class File:
             self._datasets[key] = Dataset(key, item)
 
     def add_dataset(self, name, data):
+        """Add a new dataset to this file"""
         self.__setitem__(name, data)
 
     def datasets(self):
+        """All datasets in this file"""
         return (d for d in self._datasets.values())
 
 
 def main():
+    """ The main function of pysbftool """
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('paths', nargs='*')
@@ -351,7 +390,7 @@ def main():
     args = parser.parse_args()
     for path in args.paths:
         print(path)
-        f = File(path)
-        f.read()
-        for dset in f.datasets():
+        sbf_file = File(path)
+        sbf_file.read()
+        for dset in sbf_file.datasets():
             dset.pretty_print(show_data=args.print_datasets)
