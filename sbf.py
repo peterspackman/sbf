@@ -267,6 +267,18 @@ class Dataset:
     flags -- manually set the flags
     dtype -- manually set the datatype
     shape -- manually set the shape
+
+    Examples:
+
+    Datasets may be constructed from any array-like, with
+    dtypes being guess by numpy
+    >>> Dataset('example_integer_dataset', [1,2,3,4])
+    Dataset('example_integer_dataset', sbf_long, [4])
+
+    Alternately, they may be specified by the numpy array
+    >>> Dataset('example_float_dataset', np.array([1,2.5,3,4], dtype=np.float32))
+    Dataset('example_float_dataset', sbf_float, [4])
+
     """
     def __init__(self, name, data, *, flags=None, dtype=None, shape=None):
         data = np.array(data)
