@@ -33,6 +33,7 @@ before_script:
     - export FC=gfortran-6
     - export CC=gcc-6
     - export CXX=g++-6
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; export CC=gcc-7; export CXX=g++-7; fi
 
 script:
     - mkdir build && cd build
