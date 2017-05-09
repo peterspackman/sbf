@@ -51,7 +51,13 @@ class InvalidDatasetError(Exception):
 
 
 class SBFType(IntEnum):
-    """ Integer storage value of different SBF types """
+    """ Integer storage value of different SBF types.
+    
+    >>> SBFType(2)
+    <SBFType.sbf_long: 2>
+    >>> SBFType.sbf_byte
+    <SBFType.sbf_byte: 0>
+    """
     sbf_byte = 0
     sbf_integer = 1
     sbf_long = 2
@@ -62,12 +68,21 @@ class SBFType(IntEnum):
     sbf_char = 7
 
     def as_numpy(self):
-        """Express this data type as a numpy type"""
+        """Express this data type as a numpy type
+
+        >>> SBFType.sbf_complex_float.as_numpy()
+        dtype('complex64')
+        >>> SBFType.sbf_char.as_numpy()
+        dtype('S1')
+        """
         return _SBF_NUMPY_TYPE_MAP[self]
 
     @staticmethod
     def from_numpy_type(numpy_type):
-        """Get the relevant SBF type for a given numpy type"""
+        """Get the relevant SBF type for a given numpy type
+        >>> SBFType.from_numpy_type(np.dtype('float32'))
+        <SBFType.sbf_float: 3>
+        """
         return _NUMPY_SBF_TYPE_MAP[numpy_type]
 
 
@@ -95,63 +110,149 @@ class Flags:
     >>> f = Flags(column_major=True, dimensions=3)
     >>> f
     Flags(dim=3, col=True)
-    >>> f.set_column_major(False)
-    >>> f.column_major
-    False
-    >>> f.dimensions
-    3
-    >>> f.set_dimensions(2)
-    >>> f.dimensions
-    2
     """
     column_major_bit = 0b01000000
     dimension_bits = 0b00001111
+    big_endian_bit = 0b10000000
+    custom_datatype_bit = 0b00100000
 
-    def __init__(self, *, binary=0,
+    def __init__(self, *,
                  column_major=False,
-                 dimensions=0):
+                 dimensions=0,
+                 endianness='little',
+                 custom_datatype=False):
 
-        self.binary = binary
+        self.binary = 0
         self.set_column_major(column_major)
         self.set_dimensions(dimensions)
-        self.binary = binary
+        self.set_endianness(endianness)
+        self.set_custom_datatype(custom_datatype)
 
     @property
     def dimensions(self):
-        """The dimensions of the dataset as specified in this sbf_byte of flags"""
+
+        """The dimensions of the dataset as specified in this sbf_byte of flags
+        >>> f = Flags(column_major=True, dimensions=3)
+        >>> f.dimensions
+        3
+        """
         return self.binary & Flags.dimension_bits
 
     def set_dimensions(self, dims):
-        """Set the dimensions of the dataset as specified in this sbf_byte of flags"""
+        """Set the dimensions of the dataset as specified in this sbf_byte of flags
+        >>> f = Flags(dimensions=7)
+        >>> f.set_dimensions(2)
+        >>> f
+        Flags(dim=2, col=False)
+        """
         self.clear_bits(Flags.dimension_bits)
         self.set_bits(dims & Flags.dimension_bits)
 
     @property
     def column_major(self):
         """Is the dataset is stored as column major
-        as specified in this sbf_byte of flags?"""
+        as specified in this sbf_byte of flags?
+        >>> f = Flags(column_major=True)
+        >>> f.column_major
+        True
+        """
         return bool(self.binary & Flags.column_major_bit)
 
     def set_column_major(self, value):
         """Set whether the dataset is stored as column major
-        as specified in this sbf_byte of flags."""
+        as specified in this sbf_byte of flags.
+        >>> f = Flags(dimensions=7)
+        >>> f.set_column_major(True)
+        >>> f
+        Flags(dim=7, col=True)
+        """
         if value:
             self.set_bits(Flags.column_major_bit)
         else:
             self.clear_bits(Flags.column_major_bit)
 
+    @property
+    def endianness(self):
+        """Is the binary data in this dataset big or little endian?
+
+        >>> f = Flags(dimensions=7)
+        >>> f.endianness
+        'little'
+        """
+        return 'big' if bool(self.binary & Flags.big_endian_bit) else 'little'
+
+    def set_endianness(self, value):
+        """Set whether the dataset is stored as big or little endian.
+        Note: endianness is unimplemented as yet in SBF in general.
+
+        >>> f = Flags(dimensions=7, endianness='big')
+        >>> f.set_endianness('little')
+        >>> f.endianness
+        'little'
+        """
+        if value == 'little':
+            self.clear_bits(Flags.big_endian_bit)
+        elif value == 'big':
+            self.set_bits(Flags.big_endian_bit)
+        else:
+            raise Exception('Unknown endianness given')
+
+    @property
+    def custom_datatype(self):
+        """Is the dataset storing a custom datatype?
+        >>> f = Flags(custom_datatype=True)
+        >>> f.custom_datatype
+        True
+        """
+        return bool(self.binary & Flags.custom_datatype_bit)
+
+    def set_custom_datatype(self, value):
+        """Set if dataset stores a custom datatype.
+
+        >>> f = Flags(custom_datatype=True)
+        >>> f.set_custom_datatype(False)
+        >>> f.custom_datatype
+        False
+        """
+        if value:
+            self.set_bits(Flags.custom_datatype_bit)
+        else:
+            self.clear_bits(Flags.custom_datatype_bit)
+
+
     def set_bits(self, mask):
-        """Helper method to set bits based on a mask"""
+        """Helper method to set bits based on a mask
+        >>> f = Flags()
+        >>> f.set_bits(Flags.custom_datatype_bit)
+        >>> f.custom_datatype
+        True
+        """
         self.binary |= mask
 
     def clear_bits(self, mask):
-        """Helper method to clear bits based on a mask"""
+        """Helper method to clear bits based on a mask
+
+        >>> f = Flags(dimensions=5)
+        >>> f.clear_bits(Flags.dimension_bits)
+        >>> f
+        Flags(dim=0, col=False)
+        """
         self.binary &= ~mask
 
     def __repr__(self):
         return "Flags(dim={d}, col={c})".format(
             d=self.dimensions,
             c=self.column_major)
+
+    def from_bits(bits):
+        """Construct a Flags instance from a bitmask
+
+        >>> Flags.from_bits(Flags.column_major_bit)
+        Flags(dim=0, col=True)
+        """
+        flags = Flags()
+        flags.binary = bits
+        return flags
 
 
 class Dataset:
@@ -202,17 +303,12 @@ class Dataset:
         self._name = name
 
     @staticmethod
-    def empty():
-        """Create an empty dataset, with no name"""
-        return Dataset('', [])
-
-    @staticmethod
     def from_header(header_struct, shape):
-        """Create an empty dataset, based on a SBFDataHeader"""
+        """Create an empty dataset, described based on an SBFDataHeader"""
         name = bytes2str(header_struct[0])
         flags = header_struct[1]
         dtype = SBFType(header_struct[2])
-        dset = Dataset(name, None, flags=Flags(binary=flags),
+        dset = Dataset(name, None, flags=Flags.from_bits(flags),
                        dtype=dtype, shape=shape[np.nonzero(shape)])
         return dset
 

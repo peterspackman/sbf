@@ -4,3 +4,6 @@ build/
 include/catch.hpp
 .vscode/
 .browse*
+*.swp
+__pycache__*
+*.egg-info/*
