@@ -30,12 +30,17 @@ endianness:\t{endianness}{data_sep}{data}{data_sep}
 
 
 def read_file(filepath):
+    """Helper method to read an SBF file from a given filepath
+    """
     f = File(filepath)
     f.read()
     return f
 
 
 def bytes2str(bytes_arr):
+    """Helper method to convert a null terminated array of bytes
+    to a unicode string.
+    """
     return (bytes_arr.split(b'\0')[0]).decode('utf-8')
 
 
@@ -81,33 +86,57 @@ class Flags:
 
     Keyword arguments
     binary -- integer/binary value of the flags (default 0b0000000)
+
+    >>> f = Flags(column_major=True, dimensions=3)
+    >>> f
+    Flags(dim=3, col=True)
+    >>> f.set_column_major(False)
+    >>> f.column_major
+    False
+    >>> f.dimensions
+    3
+    >>> f.set_dimensions(2)
+    >>> f.dimensions
+    2
     """
     column_major_bit = 0b01000000
     dimension_bits = 0b00001111
 
-    def __init__(self, binary=None):
-        if binary:
-            self.binary = binary
-        else:
-            self.binary = 0
+    def __init__(self, *, binary=0, 
+                 column_major=False,
+                 dimensions=0):
 
+        self.binary = binary
+        self.set_column_major(column_major)
+        self.set_dimensions(dimensions)
+        self.binary = binary
+            
     @property
     def dimensions(self):
-        return self.binary & self.dimension_bits
+        return self.binary & Flags.dimension_bits
 
     def set_dimensions(self, dims):
-        self.binary &= ~(self.dimension_bits)
-        self.binary |= (dims & self.dimension_bits)
+        self.clear_bits(Flags.dimension_bits)
+        self.set_bits(dims & Flags.dimension_bits)
 
     @property
     def column_major(self):
-        return bool(self.binary & self.column_major_bit)
+        return bool(self.binary & Flags.column_major_bit)
 
     def set_column_major(self, value):
-        self.binary |= (value & self.column_major_bit)
+        if value:
+            self.set_bits(Flags.column_major_bit)
+        else:
+            self.clear_bits(Flags.column_major_bit)
+
+    def set_bits(self, mask):
+        self.binary |= mask
+
+    def clear_bits(self, mask):
+        self.binary &= ~mask
 
     def __repr__(self):
-        return "Flags(D={d}, C={c})".format(
+        return "Flags(dim={d}, col={c})".format(
                 d=self.dimensions,
                 c=self.column_major)
 
@@ -125,14 +154,13 @@ class Dataset:
     dtype -- manually set the datatype
     shape -- manually set the shape
     """
-    def __init__(self, name, data, flags=None, dtype=None, shape=None):
+    def __init__(self, name, data, *, flags=None, dtype=None, shape=None):
         data = np.array(data)
         self._data = data
         self._name = name
         self._dtype = SBFType.from_numpy_type(data.dtype)
         self._shape = np.array(data.shape)
-        self._flags = Flags()
-        self._flags.set_dimensions(self._shape.size)
+        self._flags = Flags(dimensions=self._shape.size)
         if flags:
             self._flags = flags
 
@@ -141,8 +169,7 @@ class Dataset:
         self._data = data
         self._dtype = SBFType.from_numpy_type(data.dtype)
         self._shape = np.array(data.shape)
-        self._flags = Flags()
-        self._flags.set_dimensions(self._shape.size)
+        self._flags = Flags(dimensions=self._shape.size)
         if flags:
             self._flags = flags
 
@@ -158,7 +185,7 @@ class Dataset:
         dset = Dataset.empty()
         dset._name = name
         dset._dtype = dtype
-        dset._flags = Flags(flags)
+        dset._flags = Flags(binary=flags)
         dset._data = None
         dset._shape = shape[np.nonzero(shape)]
         return dset
@@ -269,6 +296,8 @@ class File:
         f.write(file_header)
         for dataset in self._datasets.values():
             flags = dataset._flags
+            # if we're writing a file, unset the column major bit as
+            # numpy arrays are stored row major
             if flags.column_major:
                 flags.set_column_major(False)
             data_header = _pack_dataheader(
