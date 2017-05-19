@@ -301,6 +301,13 @@ class Dataset:
 
     def set_data(self, data, flags=None):
         """Assign the data stored in this dataset to be the array-like `data`.
+
+        >>> dset = Dataset('example', [1,2,3,4])
+        >>> dset
+        Dataset('example', sbf_long, [4])
+        >>> dset.set_data([[5.5], [3.0]])
+        >>> dset
+        Dataset('example', sbf_double, [2 1])
         """
         data = np.array(data)
         self._data = data
@@ -311,12 +318,29 @@ class Dataset:
             self._flags = flags
 
     def set_name(self, name):
-        """Set the name of this dataset"""
+        """Set the name of this dataset.
+        >>> dset = Dataset('example', [1,2,3,4])
+        >>> dset
+        Dataset('example', sbf_long, [4])
+        >>> dset.set_name('new name')
+        >>> dset
+        Dataset('new name', sbf_long, [4])
+        """
         self._name = name
 
     @staticmethod
     def from_header(header_struct, shape):
-        """Create an empty dataset, described based on an SBFDataHeader"""
+        """Create an empty dataset, described based on an SBFDataHeader
+        >>> header_struct = (b"this is a dataset name", 65, 7)
+        >>> shape = np.array([21, 0, 0, 0, 0, 0, 0, 0])
+        >>> dset = Dataset.from_header(header_struct, shape)
+        >>> dset.name
+        'this is a dataset name'
+        >>> dset.flags.dimensions
+        1
+        >>> dset.dimensions
+        1
+        """
         name = bytes2str(header_struct[0])
         flags = header_struct[1]
         dtype = SBFType(header_struct[2])
