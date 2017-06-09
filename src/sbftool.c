@@ -10,7 +10,7 @@
 #include <math.h>
 #include <inttypes.h>
 #include "sbf.h"
-#define SBFTOOL_VERSION "0.2.0"
+#define SBFTOOL_VERSION "0.3.0"
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
 #define BYTE_TO_BINARY(byte)  \
@@ -53,12 +53,14 @@ void usage(const char * progname) {
     fprintf(stdout,
     "sbftool %s (SBF v%s)\n"
     "Usage:\n"
-    "\tsbftool [-cdl] filename\n"
+    "\tsbftool [-dhvp] filename\n"
+    "\tsbftool [-cm] filename1 filename2\n"
     "Options:\n"
         "\t-d\tspecify a dataset.\n"
-        "\t-p\tprint out contents of dataset(s) (implies -l).\n"
-        "\t-c\tCompare contents of two sbf files.\n"
+        "\t-p\tprint out contents of dataset(s).\n"
+        "\t-c\tCompare contents of two sbf files (like diff).\n"
         "\t-m\tOnly compare dataset metadata of the two sbf files.\n"
+        "\t-v\tIncrease verbosity (up to three times).\n\n"
         "\t-h\tPrint this help message.\n\n"
     "By default sbftool simply prints out info about datasets in the file(s) provided.\n",
         SBFTOOL_VERSION, SBF_VERSION);

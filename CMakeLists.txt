@@ -19,9 +19,9 @@ else()
     # can do manually with ctest -C WITH_SBF_TESTS 
 endif()
 
-enable_testing()
 add_subdirectory(${PROJECT_SOURCE_DIR}/include)
 if(WITH_SBF_TESTS)
+    enable_testing()
     add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
 endif()
 add_subdirectory(${PROJECT_SOURCE_DIR}/src)
