@@ -75,10 +75,10 @@ type, public :: sbf_Dataset
     character(len=1, kind=sbf_char), dimension(:), allocatable :: data
     type(sbf_DataHeader) :: header
     contains
-    procedure :: serialize_header => write_dataset_header, &
-                 serialize_data => write_dataset_data, &
-                 deserialize_header => read_dataset_header, &
-                 deserialize_data => read_dataset_data
+    procedure :: serialize_header => write_dataset_header
+    procedure :: serialize_data => write_dataset_data
+    procedure :: deserialize_header => read_dataset_header
+    procedure :: deserialize_data => read_dataset_data
 end type
 
 type, public :: sbf_File
@@ -106,9 +106,11 @@ type, public :: sbf_File
     integer(sbf_byte) :: n_datasets = 0
     type(sbf_Dataset), dimension(SBF_MAX_DATASETS) :: datasets
     contains
-    procedure :: serialize => write_sbf_file, deserialize => read_sbf_file
+    procedure :: serialize => write_sbf_file
+    procedure :: deserialize => read_sbf_file
     procedure :: add_dataset => sbf_add_dataset
-    procedure :: close => close_sbf_file, open => open_sbf_file
+    procedure :: close => close_sbf_file
+    procedure :: open => open_sbf_file
     ! getters
     generic, public :: get =>  get_sbf_Dataset_sbf_char_1d, get_sbf_Dataset_sbf_char_2d, &
         get_sbf_Dataset_sbf_char_3d, get_sbf_Dataset_sbf_char_4d, &
@@ -144,39 +146,70 @@ type, public :: sbf_File
         get_sbf_Dataset_sbf_float_0d, get_sbf_Dataset_sbf_double_0d, &
         get_sbf_Dataset_cpx_sbf_float_0d, get_sbf_Dataset_cpx_sbf_double_0d
         
-    procedure, private :: get_sbf_Dataset_sbf_char_1d, get_sbf_Dataset_sbf_char_2d, &
-        get_sbf_Dataset_sbf_char_3d, get_sbf_Dataset_sbf_char_4d, &
-        get_sbf_Dataset_sbf_char_5d, get_sbf_Dataset_sbf_char_6d, &
-        get_sbf_Dataset_sbf_char_7d, get_sbf_Dataset_sbf_byte_1d, &
-        get_sbf_Dataset_sbf_byte_2d, get_sbf_Dataset_sbf_byte_3d, &
-        get_sbf_Dataset_sbf_byte_4d, get_sbf_Dataset_sbf_byte_5d, &
-        get_sbf_Dataset_sbf_byte_6d, get_sbf_Dataset_sbf_byte_7d, &
-        get_sbf_Dataset_sbf_integer_1d, get_sbf_Dataset_sbf_integer_2d, &
-        get_sbf_Dataset_sbf_integer_3d, get_sbf_Dataset_sbf_integer_4d, &
-        get_sbf_Dataset_sbf_integer_5d, get_sbf_Dataset_sbf_integer_6d, &
-        get_sbf_Dataset_sbf_integer_7d, get_sbf_Dataset_sbf_long_1d, &
-        get_sbf_Dataset_sbf_long_2d, get_sbf_Dataset_sbf_long_3d, &
-        get_sbf_Dataset_sbf_long_4d, get_sbf_Dataset_sbf_long_5d, &
-        get_sbf_Dataset_sbf_long_6d, get_sbf_Dataset_sbf_long_7d, &
-        get_sbf_Dataset_sbf_float_1d, get_sbf_Dataset_sbf_float_2d, &
-        get_sbf_Dataset_sbf_float_3d, get_sbf_Dataset_sbf_float_4d, &
-        get_sbf_Dataset_sbf_float_5d, get_sbf_Dataset_sbf_float_6d, &
-        get_sbf_Dataset_sbf_float_7d, get_sbf_Dataset_sbf_double_1d, &
-        get_sbf_Dataset_sbf_double_2d, get_sbf_Dataset_sbf_double_3d, &
-        get_sbf_Dataset_sbf_double_4d, get_sbf_Dataset_sbf_double_5d, &
-        get_sbf_Dataset_sbf_double_6d, get_sbf_Dataset_sbf_double_7d, &
-        get_sbf_Dataset_cpx_sbf_float_1d, get_sbf_Dataset_cpx_sbf_float_2d, &
-        get_sbf_Dataset_cpx_sbf_float_3d, get_sbf_Dataset_cpx_sbf_float_4d, &
-        get_sbf_Dataset_cpx_sbf_float_5d, get_sbf_Dataset_cpx_sbf_float_6d, &
-        get_sbf_Dataset_cpx_sbf_float_7d, get_sbf_Dataset_cpx_sbf_double_1d, &
-        get_sbf_Dataset_cpx_sbf_double_2d, get_sbf_Dataset_cpx_sbf_double_3d, &
-        get_sbf_Dataset_cpx_sbf_double_4d, get_sbf_Dataset_cpx_sbf_double_5d, &
-        get_sbf_Dataset_cpx_sbf_double_6d, get_sbf_Dataset_cpx_sbf_double_7d, &
-        ! scalars
-        get_sbf_Dataset_string, get_sbf_Dataset_sbf_byte_0d, &
-        get_sbf_Dataset_sbf_integer_0d, get_sbf_Dataset_sbf_long_0d, &
-        get_sbf_Dataset_sbf_float_0d, get_sbf_Dataset_sbf_double_0d, &
-        get_sbf_Dataset_cpx_sbf_float_0d, get_sbf_Dataset_cpx_sbf_double_0d 
+    procedure, private :: get_sbf_Dataset_sbf_char_1d
+    procedure, private :: get_sbf_Dataset_sbf_char_2d
+    procedure, private :: get_sbf_Dataset_sbf_char_3d
+    procedure, private :: get_sbf_Dataset_sbf_char_4d
+    procedure, private :: get_sbf_Dataset_sbf_char_5d
+    procedure, private :: get_sbf_Dataset_sbf_char_6d
+    procedure, private :: get_sbf_Dataset_sbf_char_7d
+    procedure, private :: get_sbf_Dataset_sbf_byte_1d
+    procedure, private :: get_sbf_Dataset_sbf_byte_2d
+    procedure, private :: get_sbf_Dataset_sbf_byte_3d
+    procedure, private :: get_sbf_Dataset_sbf_byte_4d
+    procedure, private :: get_sbf_Dataset_sbf_byte_5d
+    procedure, private :: get_sbf_Dataset_sbf_byte_6d
+    procedure, private :: get_sbf_Dataset_sbf_byte_7d
+    procedure, private :: get_sbf_Dataset_sbf_integer_1d
+    procedure, private :: get_sbf_Dataset_sbf_integer_2d
+    procedure, private :: get_sbf_Dataset_sbf_integer_3d
+    procedure, private :: get_sbf_Dataset_sbf_integer_4d
+    procedure, private :: get_sbf_Dataset_sbf_integer_5d
+    procedure, private :: get_sbf_Dataset_sbf_integer_6d
+    procedure, private :: get_sbf_Dataset_sbf_integer_7d
+    procedure, private :: get_sbf_Dataset_sbf_long_1d
+    procedure, private :: get_sbf_Dataset_sbf_long_2d
+    procedure, private :: get_sbf_Dataset_sbf_long_3d
+    procedure, private :: get_sbf_Dataset_sbf_long_4d
+    procedure, private :: get_sbf_Dataset_sbf_long_5d
+    procedure, private :: get_sbf_Dataset_sbf_long_6d
+    procedure, private :: get_sbf_Dataset_sbf_long_7d
+    procedure, private :: get_sbf_Dataset_sbf_float_1d
+    procedure, private :: get_sbf_Dataset_sbf_float_2d
+    procedure, private :: get_sbf_Dataset_sbf_float_3d
+    procedure, private :: get_sbf_Dataset_sbf_float_4d
+    procedure, private :: get_sbf_Dataset_sbf_float_5d
+    procedure, private :: get_sbf_Dataset_sbf_float_6d
+    procedure, private :: get_sbf_Dataset_sbf_float_7d
+    procedure, private :: get_sbf_Dataset_sbf_double_1d
+    procedure, private :: get_sbf_Dataset_sbf_double_2d
+    procedure, private :: get_sbf_Dataset_sbf_double_3d
+    procedure, private :: get_sbf_Dataset_sbf_double_4d
+    procedure, private :: get_sbf_Dataset_sbf_double_5d
+    procedure, private :: get_sbf_Dataset_sbf_double_6d
+    procedure, private :: get_sbf_Dataset_sbf_double_7d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_float_1d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_float_2d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_float_3d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_float_4d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_float_5d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_float_6d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_float_7d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_double_1d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_double_2d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_double_3d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_double_4d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_double_5d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_double_6d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_double_7d
+    procedure, private :: get_sbf_Dataset_string
+    procedure, private :: get_sbf_Dataset_sbf_byte_0d
+    procedure, private :: get_sbf_Dataset_sbf_integer_0d
+    procedure, private :: get_sbf_Dataset_sbf_long_0d
+    procedure, private :: get_sbf_Dataset_sbf_float_0d
+    procedure, private :: get_sbf_Dataset_sbf_double_0d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_float_0d
+    procedure, private :: get_sbf_Dataset_cpx_sbf_double_0d 
 end type
 
 ! Interfaces
