@@ -12,5 +12,5 @@ endforeach
 
 basic_fortran = executable('basic_fortran', ['basic.F90', '../include/sbf.F90'], )
 rw_fortran = executable('rw_fortran', ['write_read_file.F90', '../include/sbf.F90'])
-test('basic_fortran', basic_fortran)
-test('write_read_file_fortran', rw_fortran)
+# test('basic_fortran', basic_fortran)
+# test('write_read_file_fortran', rw_fortran)

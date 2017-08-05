@@ -40,7 +40,9 @@ TEST_CASE("Read from file", "[io, headers]") {
     REQUIRE(file.n_datasets() == 1);
     REQUIRE(file.read_datablocks() == sbf::success);
     auto dset = file.get_dataset("integer_dataset");
-    sbf::sbf_integer * ints = dset.data_as<sbf::sbf_integer>();
+    std::cout << "Read dataset: " << dset.name() << std::endl;
+    auto ints = dset.data_as<sbf::sbf_integer>();
+    REQUIRE(ints != nullptr);
     for (int i = 0; i < 1000; i++) {
         REQUIRE(ints[i] == i * i);
     }

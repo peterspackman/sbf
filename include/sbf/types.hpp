@@ -64,7 +64,7 @@ enum DataType : sbf_byte {
     SBF_CHAR
 };
 
-enum AccessMode { reading, writing };
+enum AccessMode { reading = std::ios::in, writing = std::ios::out };
 
 // RESULT TYPE FLAGS
 enum ResultType {

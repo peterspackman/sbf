@@ -25,7 +25,7 @@ namespace sbf {
 class File {
   public:
     File(std::string name, AccessMode mode = reading)
-        : accessmode(mode), filename(name), datasets(0) {
+        : accessmode(mode), filename(name), datasets({}) {
     }
 
     ResultType open() {
@@ -58,8 +58,8 @@ class File {
         if (file_stream.fail()) {
             res = write_failure;
         } else {
-            for (const auto dataset: datasets) {
-                file_stream << dataset;
+            for (const auto item: datasets) {
+                file_stream << item.second;
                 if (file_stream.fail()) {
                     res = write_failure;
                     break;
@@ -70,7 +70,8 @@ class File {
     }
 
     ResultType write_datablocks() {
-        for (Dataset& dset: datasets) {
+        for (auto item: datasets) {
+            Dataset& dset = item.second;
             file_stream.write(reinterpret_cast<const char *>(dset.data()), dset.size());
         }
         return success;
@@ -92,23 +93,23 @@ class File {
             if (file_stream.fail()) {
                 return read_failure;
             }
-            datasets.push_back(dset);
+            datasets.insert({dset.name(), dset});
         }
         return success;
     }
 
     ResultType read_datablocks() {
-        for (Dataset& dset: datasets) {
-            char * data = new char[dset.size()];
-            file_stream.read(data, dset.size());
-            dset._data = reinterpret_cast<void *>(data);
+        for (auto& item: datasets) {
+            Dataset& dset = item.second;
+            dset._data = new char[dset.size()];
+            file_stream.read(reinterpret_cast<char *>(dset._data), dset.size());
         }
         return success;
     }
 
 
     const ResultType add_dataset(const Dataset& dset) {
-        datasets.push_back(dset);
+        datasets.insert({dset.name(), dset});
         return success;
     }
 
@@ -120,21 +121,24 @@ class File {
         return datasets.size();
     }
 
-    const std::deque<Dataset> get_datasets() {
+    const std::map<std::string, Dataset> get_datasets() {
         return datasets;
     }
 
     const Dataset get_dataset(std::string name) {
-        for(const auto d: datasets) {
-            if(d.name() == name) return d;
+        auto search = datasets.find(name);
+        if(search != datasets.end()) {
+            return search->second;
         }
-        return Dataset();
+        else{
+            return Dataset();
+        }
     }
 
   private:
     std::fstream file_stream;
     AccessMode accessmode;
     std::string filename;
-    std::deque<Dataset> datasets;
+    std::map<std::string, Dataset> datasets;
 };
 }
