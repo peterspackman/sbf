@@ -59,6 +59,7 @@ class Dataset {
   public:
     Dataset() {
     }
+
     Dataset(const std::string &name_string) {
         _name = as_sbf_string(name_string);
     }

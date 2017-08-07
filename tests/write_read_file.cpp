@@ -17,8 +17,9 @@ TEST_CASE("Open and close files", "[io, headers]") {
 }
 
 TEST_CASE("Write to file", "[io, headers]") {
-    sbf::File file(test_filename, sbf::writing);
-    sbf::sbf_integer ints[1000];
+    using namespace sbf;
+    File file(test_filename, sbf::writing);
+    sbf_integer * ints = new sbf_integer[1000];
     for (int i = 0; i < 1000; i++) {
         ints[i] = i * i;
     }
@@ -26,19 +27,22 @@ TEST_CASE("Write to file", "[io, headers]") {
     sbf::sbf_dimensions shape{{0}};
     shape[0] = 1000;
     sbf::Dataset dset("integer_dataset", shape, sbf::SBF_INT, reinterpret_cast<void *>(ints));
+    std::cout << "Created dataset" << std::endl;
     REQUIRE(file.add_dataset(dset) == sbf::success);
+    std::cout << "Added dataset" << std::endl;
     REQUIRE(file.n_datasets() == 1);
+    std::cout << "check n_dataset" << std::endl;
     REQUIRE(file.write_headers() == sbf::success);
+    std::cout << "wrote_headers" << std::endl;
     REQUIRE(file.write_datablocks() == sbf::success);
+    std::cout << "wrote datablocks" << std::endl;
     REQUIRE(file.close() == sbf::success);
+    std::cout << "Wrote dataset" << std::endl;
 }
 
 TEST_CASE("Read from file", "[io, headers]") {
-    sbf::File file(test_filename, sbf::reading);
-    REQUIRE(file.open() == sbf::success);
-    REQUIRE(file.read_headers() == sbf::success);
+    sbf::File file = sbf::read_file(test_filename);
     REQUIRE(file.n_datasets() == 1);
-    REQUIRE(file.read_datablocks() == sbf::success);
     auto dset = file.get_dataset("integer_dataset");
     std::cout << "Read dataset: " << dset.name() << std::endl;
     auto ints = dset.data_as<sbf::sbf_integer>();
@@ -48,4 +52,5 @@ TEST_CASE("Read from file", "[io, headers]") {
     }
     // res = file.add_dataset<sbf_integer, 1000>("integer_dataset", ints);
     REQUIRE(file.close() == sbf::success);
+    REQUIRE_THROWS(file = sbf::read_file("does not exist"));
 }

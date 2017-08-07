@@ -43,8 +43,11 @@ class File {
     }
 
     ResultType close() {
+        for(auto& item: datasets) {
+            if(item.second._data != nullptr)
+                ::operator delete(item.second._data);
+        }
         file_stream.close();
-
         return success;
     }
 
@@ -70,9 +73,13 @@ class File {
     }
 
     ResultType write_datablocks() {
-        for (auto item: datasets) {
-            Dataset& dset = item.second;
-            file_stream.write(reinterpret_cast<const char *>(dset.data()), dset.size());
+        //avoid calling destructor
+        for (const auto& item: datasets) {
+            if(item.second._data != nullptr) {
+                file_stream.write(
+                        reinterpret_cast<const char *>(item.second.data()),
+                        item.second.size());
+            }
         }
         return success;
     }
@@ -101,7 +108,7 @@ class File {
     ResultType read_datablocks() {
         for (auto& item: datasets) {
             Dataset& dset = item.second;
-            dset._data = new char[dset.size()];
+            dset._data = ::operator new(dset.size());
             file_stream.read(reinterpret_cast<char *>(dset._data), dset.size());
         }
         return success;
@@ -141,4 +148,16 @@ class File {
     std::string filename;
     std::map<std::string, Dataset> datasets;
 };
+
+File read_file(const std::string& filename) {
+    auto file = File(filename, sbf::reading);
+    auto status = file.open();
+    if(status != success) throw std::runtime_error("Could not open file");
+    status = file.read_headers();
+    if(status != success) throw status;
+    status = file.read_datablocks();
+    if(status != success) throw status;
+    return file;
+}
+
 }
