@@ -1,5 +1,4 @@
 from setuptools import setup
-import sbf
 
 with open('README.md', 'r') as f:
     sbf_long_description = f.read()
@@ -15,7 +14,7 @@ sbf_classifiers = [
 
 
 setup(name='sbf',
-      version=sbf.__version__,
+      version='0.2.0',
       py_modules=['sbf'],
       url='http://github.com/peterspackman/sbf',
       author='Peter Spackman',
@@ -30,5 +29,6 @@ setup(name='sbf',
           ],
       },
       license='GPLv3',
-      install_requires=['numpy'],
+      install_requires=['numpy',
+          'pathlib2;python_version<="2.7"'],
 )

@@ -2,7 +2,6 @@
 """
 from collections import OrderedDict
 from enum import IntEnum
-from pathlib import Path
 import struct
 import numpy as np
 
@@ -116,7 +115,7 @@ class Flags:
     big_endian_bit = 0b10000000
     custom_datatype_bit = 0b00100000
 
-    def __init__(self, *,
+    def __init__(self,
                  column_major=False,
                  dimensions=0,
                  endianness='little',
@@ -244,6 +243,7 @@ class Flags:
             d=self.dimensions,
             c=self.column_major)
 
+    @staticmethod
     def from_bits(bits):
         """Construct a Flags instance from a bitmask
 
@@ -280,7 +280,7 @@ class Dataset:
     Dataset('example_float_dataset', sbf_float, [4])
 
     """
-    def __init__(self, name, data, *, flags=None, dtype=None, shape=None):
+    def __init__(self, name, data, flags=None, dtype=None, shape=None):
         data = np.array(data)
         self._data = data
         self._name = name
@@ -428,21 +428,19 @@ class Dataset:
 class File:
     """An SBF file object """
     def __init__(self, path):
-        if not isinstance(path, Path):
-            path = Path(path)
         self._path = path
         self._datasets = OrderedDict()
         self._n_datasets = 0
 
     def read(self):
         """Read the data contained in this file"""
-        with self._path.open("rb") as buf:
+        with open(self._path, "rb") as buf:
             self._read_headers(buf)
             self._read_data(buf)
 
     def write(self):
         """Write the data contained in this file to the specified path"""
-        with self._path.open('wb') as buf:
+        with open(self._path, 'wb') as buf:
             self._write_headers(buf)
             self._write_data(buf)
 
@@ -520,9 +518,13 @@ def main():
                         help='Compare the contents of the SBF datasets'
                              '(like the unix diff tool)')
     args = parser.parse_args()
+    print(args)
     for path in args.paths:
         print(path)
         sbf_file = File(path)
         sbf_file.read()
         for dset in sbf_file.datasets():
             dset.pretty_print(show_data=args.print_datasets)
+
+if __name__ == '__main__':
+    main()
