@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <deque>
 #include <fstream>
+#include <map>
 #include <iostream>
 #include <iterator>
 #include <vector>
@@ -43,10 +44,6 @@ class File {
     }
 
     ResultType close() {
-        for(auto& item: datasets) {
-            if(item.second._data != nullptr)
-                ::operator delete(item.second._data);
-        }
         file_stream.close();
         return success;
     }
@@ -61,8 +58,8 @@ class File {
         if (file_stream.fail()) {
             res = write_failure;
         } else {
-            for (const auto item: datasets) {
-                file_stream << item.second;
+            for (auto item: datasets) {
+                file_stream << item;
                 if (file_stream.fail()) {
                     res = write_failure;
                     break;
@@ -75,10 +72,10 @@ class File {
     ResultType write_datablocks() {
         //avoid calling destructor
         for (const auto& item: datasets) {
-            if(item.second._data != nullptr) {
+            if(item.data() != nullptr) {
                 file_stream.write(
-                        reinterpret_cast<const char *>(item.second.data()),
-                        item.second.size());
+                        reinterpret_cast<const char *>(item.data()),
+                        static_cast<std::streamsize>(item.size()));
             }
         }
         return success;
@@ -100,23 +97,25 @@ class File {
             if (file_stream.fail()) {
                 return read_failure;
             }
-            datasets.insert({dset.name(), dset});
+            m_dataset_names[dset.name()] = static_cast<int>(datasets.size());
+            datasets.push_back(dset);
         }
         return success;
     }
 
     ResultType read_datablocks() {
-        for (auto& item: datasets) {
-            Dataset& dset = item.second;
-            dset._data = ::operator new(dset.size());
-            file_stream.read(reinterpret_cast<char *>(dset._data), dset.size());
+        for (Dataset& dset: datasets) {
+            char * data = new char[dset.size()];
+            file_stream.read(data, static_cast<std::streamsize>(dset.size()));
+            dset._data = reinterpret_cast<void *>(data);
         }
         return success;
     }
 
 
-    const ResultType add_dataset(const Dataset& dset) {
-        datasets.insert({dset.name(), dset});
+    ResultType add_dataset(const Dataset& dset) {
+        m_dataset_names[dset.name()] = static_cast<int>(datasets.size());
+        datasets.push_back(dset);
         return success;
     }
 
@@ -124,21 +123,23 @@ class File {
         return file_stream.is_open();
     }
 
-    const std::size_t n_datasets() const{
+    std::size_t n_datasets() const {
         return datasets.size();
     }
 
-    const std::map<std::string, Dataset> get_datasets() {
+    const std::deque<Dataset> get_datasets() const {
         return datasets;
     }
 
-    const Dataset get_dataset(std::string name) {
-        auto search = datasets.find(name);
-        if(search != datasets.end()) {
-            return search->second;
+    const Dataset get_dataset(std::string name) const {
+        auto search = m_dataset_names.find(name);
+        int index = -1;
+        if(search != m_dataset_names.end()) {
+            index = search->second;
+            return datasets[index];
         }
-        else{
-            return Dataset();
+        else {
+            return empty;
         }
     }
 
@@ -146,7 +147,9 @@ class File {
     std::fstream file_stream;
     AccessMode accessmode;
     std::string filename;
-    std::map<std::string, Dataset> datasets;
+    std::map<std::string, int> m_dataset_names;
+    Dataset empty;
+    std::deque<Dataset> datasets;
 };
 
 File read_file(const std::string& filename) {
