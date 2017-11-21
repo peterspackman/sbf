@@ -41,7 +41,7 @@ TEST_CASE("Write to file", "[io, headers]") {
 }
 
 TEST_CASE("Read from file", "[io, headers]") {
-    sbf::File file = sbf::read_file(test_filename);
+    sbf::File file(test_filename);
     REQUIRE(file.n_datasets() == 1);
     auto dset = file.get_dataset("integer_dataset");
     std::cout << "Read dataset: " << dset.name() << std::endl;
@@ -52,5 +52,6 @@ TEST_CASE("Read from file", "[io, headers]") {
     }
     // res = file.add_dataset<sbf_integer, 1000>("integer_dataset", ints);
     REQUIRE(file.close() == sbf::success);
-    REQUIRE_THROWS(file = sbf::read_file("does not exist"));
+    sbf::File file_fail("does not exist");
+    REQUIRE(file.status() == sbf::File::Status::FailedOpening);
 }

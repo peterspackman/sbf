@@ -5,6 +5,7 @@
 #include <deque>
 #include <fstream>
 #include <map>
+#include <cerrno>
 #include <iostream>
 #include <iterator>
 #include <vector>
@@ -25,8 +26,41 @@ namespace sbf {
  */
 class File {
   public:
-    File(std::string name, AccessMode mode = reading)
-        : accessmode(mode), filename(name), datasets({}) {
+
+    enum Status {
+        Open,
+        Closed,
+        FailedOpening,
+        FailedClosing,
+        FailedReadingHeaders,
+        FailedReadingDatablocks
+    };
+
+    File() {}
+    File(std::string name, AccessMode mode = reading, bool read = true)
+        : accessmode(mode), filename(name), m_status(Closed), datasets({}) {
+
+        if(!read) return;
+        auto status = open();
+        if (status != sbf::success) {
+            m_status = FailedOpening;
+            return;
+        }
+        else m_status = Open;
+
+        status = read_headers();
+        if (status != sbf::success) {
+            m_status = FailedReadingHeaders;
+            return;
+        }
+        status = read_datablocks();
+        if (status != sbf::success) {
+            m_status = FailedReadingDatablocks;
+            return;
+        }
+        status = close();
+        if (status == sbf::success) m_status = Closed;
+        else m_status = FailedClosing;
     }
 
     ResultType open() {
@@ -55,17 +89,18 @@ class File {
         file_header.n_datasets = datasets.size();
         file_stream << file_header;
 
-        if (file_stream.fail()) {
+        if (!file_stream) {
             res = write_failure;
         } else {
             for (auto item: datasets) {
                 file_stream << item;
-                if (file_stream.fail()) {
+                if (!file_stream) {
                     res = write_failure;
                     break;
                 }
             }
         }
+        std::cerr << "Error " << strerror(errno) << std::endl;
         return res;
     }
 
@@ -143,24 +178,16 @@ class File {
         }
     }
 
+    const Status status() const { return m_status; }
+
   private:
     std::fstream file_stream;
     AccessMode accessmode;
     std::string filename;
+    Status m_status;
     std::map<std::string, int> m_dataset_names;
     Dataset empty;
     std::deque<Dataset> datasets;
 };
-
-File read_file(const std::string& filename) {
-    auto file = File(filename, sbf::reading);
-    auto status = file.open();
-    if(status != success) throw std::runtime_error("Could not open file");
-    status = file.read_headers();
-    if(status != success) throw status;
-    status = file.read_datablocks();
-    if(status != success) throw status;
-    return file;
-}
 
 }
