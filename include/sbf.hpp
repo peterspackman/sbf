@@ -40,7 +40,7 @@ class File {
     File(std::string name, AccessMode mode = reading, bool read = true)
         : accessmode(mode), filename(name), m_status(Closed), datasets({}) {
 
-        if(!read) return;
+        if(mode == sbf::writing || !read) return;
         auto status = open();
         if (status != sbf::success) {
             m_status = FailedOpening;

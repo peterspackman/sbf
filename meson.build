@@ -1,5 +1,5 @@
 project('sbf', ['c', 'cpp', 'fortran'], 
-        version: '0.2.0', default_options: ['c_std=c11', 'cpp_std=c++11'])
+        version: '0.2.0', default_options: ['c_std=c11', 'cpp_std=c++1z'])
 
 conf_data = configuration_data()
 conf_data.set('SBF_VERSION_MAJOR', '0')

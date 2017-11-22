@@ -53,5 +53,5 @@ TEST_CASE("Read from file", "[io, headers]") {
     // res = file.add_dataset<sbf_integer, 1000>("integer_dataset", ints);
     REQUIRE(file.close() == sbf::success);
     sbf::File file_fail("does not exist");
-    REQUIRE(file.status() == sbf::File::Status::FailedOpening);
+    REQUIRE(file_fail.status() == sbf::File::Status::FailedOpening);
 }
