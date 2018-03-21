@@ -167,6 +167,8 @@ struct SBFTypeTraits<sbf_double> {
  */
 class Dataset {
 friend class File;
+constexpr static size_t header_size = 62*sizeof(sbf_character) 
+    + 8*sizeof(sbf_size) + sizeof(sbf_byte);
 
 private:
 void * _data = nullptr;
@@ -177,7 +179,6 @@ DataType _type = SBF_BYTE;     // how big is each block of data
 sbf_dimensions _shape = {{0}}; // how many blocks of data do we have
 
 public:
-
 Dataset() {}
 
 Dataset(const std::string &name_string)
@@ -410,7 +411,8 @@ class File {
             return read_failure;
         }
 
-        size_t offset = sizeof(Dataset) * file_header.n_datasets + sizeof(FileHeader);
+        size_t offset = Dataset::header_size * file_header.n_datasets + sizeof(FileHeader);
+        std::cout << "Offset of headers: " << offset << std::endl;
         for (auto i = 0; i < file_header.n_datasets; i++) {
             Dataset dset;
             file_stream >> dset;
@@ -444,6 +446,7 @@ class File {
         bool valid = (Traits::type == dset.get_type());
         if(!valid) return ResultType::write_failure;
         if(data != nullptr) {
+            std::cout << "Offset: " << dset._offset;
             file_stream.seekg(dset._offset);
             file_stream.write(
                     reinterpret_cast<const char *>(data),
@@ -454,10 +457,11 @@ class File {
 
 
 
-    ResultType add_dataset(const Dataset& dset) {
-        size_t offset = sizeof(FileHeader) + datasets.size()*sizeof(Dataset);
+    ResultType add_dataset(Dataset& dset) {
+        size_t offset = sizeof(FileHeader) + datasets.size()*Dataset::header_size;
         for(const auto& x: datasets) offset += x.size(); 
         m_dataset_names[dset.name()] = static_cast<int>(datasets.size());
+        dset._offset = offset;
         datasets.push_back(dset);
         return success;
     }
