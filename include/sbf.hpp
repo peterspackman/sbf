@@ -10,6 +10,7 @@
 #include <complex>
 #include <cstdint>
 #include <string>
+
 /*
  * sbf.hpp
  *
@@ -131,6 +132,30 @@ std::istream &operator>>(std::istream &is, FileHeader &f) {
     return is;
 }
 
+template <typename T> struct SBFTypeTraits {
+    static constexpr char const *type_name = "sbf_byte";
+    static const size_t size = 1;
+    static const bool is_specialized = false;
+    static const DataType type = SBF_BYTE;
+};
+
+template<>
+struct SBFTypeTraits<sbf_integer> {
+    static constexpr char const *type_name = "sbf_integer";
+    static const size_t size = sizeof(sbf_integer);
+    static const bool is_specialized = true;
+    static const DataType type = SBF_INT;
+};
+
+template<>
+struct SBFTypeTraits<sbf_double> {
+    static constexpr char const *type_name = "sbf_double";
+    static const size_t size = sizeof(sbf_double);
+    static const bool is_specialized = true;
+    static const DataType type = SBF_DOUBLE;
+};
+
+
 /*
  * Data header container structure
  *
@@ -141,142 +166,132 @@ std::istream &operator>>(std::istream &is, FileHeader &f) {
  * - dimensions of the dataset
  */
 class Dataset {
-  friend class File;
-  public:
-    Dataset() {
-    }
+friend class File;
 
-    Dataset(const std::string &name_string) {
-        _name = as_sbf_string(name_string);
-    }
+private:
+void * _data = nullptr;
+size_t _offset = 0;
+sbf_string _name;
+sbf_byte _flags = flags::default_flags;
+DataType _type = SBF_BYTE;     // how big is each block of data
+sbf_dimensions _shape = {{0}}; // how many blocks of data do we have
 
-    Dataset(const std::string &name_string, const sbf_dimensions &shape,
-            const DataType type, void * data,
-            const sbf_byte flags = flags::default_flags) {
-        _data = data;
-        _name = as_sbf_string(name_string);
-        _flags = flags;
-        std::copy(begin(shape), end(shape), begin(_shape));
-        sbf_byte dims = 0;
-        for(dims = 0; (dims < _shape.size()) && (_shape[dims]); dims++){};
-        set_dimensions(dims);
-        _type = type;
-    }
+public:
 
-    const std::string name() const {
-        return as_string(_name);
-    }
+Dataset() {}
 
-    sbf_string raw_name() const {
-        return _name;
-    }
+Dataset(const std::string &name_string)
+    : _name(as_sbf_string(name_string)) {}
 
-    /* Is the 'flags' big endian bit set?*/
-    inline const bool is_big_endian() const {
-        return _flags & flags::big_endian;
-    }
+Dataset(const std::string &name_string, const sbf_dimensions &shape,
+        const DataType type, const sbf_byte flags = flags::default_flags)
+    : _name(as_sbf_string(name_string)), _flags(flags), _type(type)
+{
+    std::copy(begin(shape), end(shape), begin(_shape));
+    sbf_byte dims = 0;
+    for(dims = 0; (dims < _shape.size()) && (_shape[dims]); dims++){};
+    set_dimensions(dims);
+}
 
-    /* Is the 'flags' big endian bit not set? (equivalent to !is_big_endian() */
-    inline const bool is_little_endian() const {
-        return !is_big_endian();
-    }
+const std::string name() const {
+    return as_string(_name);
+}
 
-    inline const bool is_empty() const {
-        return get_dimensions() == 0;
-    }
+sbf_string raw_name() const {
+    return _name;
+}
 
-    /* Extract number of dimensions from 'flags'?*/
-    inline const sbf_byte get_dimensions() const {
-        return (_flags & flags::dimension_bits);
-    }
+/* Is the 'flags' big endian bit set?*/
+inline const bool is_big_endian() const {
+    return _flags & flags::big_endian;
+}
 
-    inline void set_dimensions(sbf_byte dimensions) {
-        _flags |= (dimensions & flags::dimension_bits);
-    }
+/* Is the 'flags' big endian bit not set? (equivalent to !is_big_endian() */
+inline const bool is_little_endian() const {
+    return !is_big_endian();
+}
 
-    const sbf_byte get_flags() const {
-        return _flags;
-    }
+inline const bool is_empty() const {
+    return get_dimensions() == 0;
+}
 
-    const DataType get_type() const {
-        return _type;
-    }
+/* Extract number of dimensions from 'flags'?*/
+inline const sbf_byte get_dimensions() const {
+    return (_flags & flags::dimension_bits);
+}
 
-    const sbf_dimensions get_shape() const {
-        return _shape;
-    }
+inline void set_dimensions(sbf_byte dimensions) {
+    _flags |= (dimensions & flags::dimension_bits);
+}
 
-    const std::vector<sbf_size> get_shape_vector() const {
-        return std::vector<sbf_size>(_shape.data(), _shape.data() + _shape.size());
-    }
+const sbf_byte get_flags() const {
+    return _flags;
+}
 
-    const void * data() const {
-        return _data;
-    }
+const DataType get_type() const {
+    return _type;
+}
 
-    template<typename T>
-    T * data_as() const {
-        return reinterpret_cast<T*>(_data);
-    }
+const sbf_dimensions get_shape() const {
+    return _shape;
+}
 
-    /*
-     * Size of the datatype, in bytes
-     *
-     * TODO fix implementation to not be so dirty
-     */
-    const std::size_t datatype_size() const {
-        sbf_size bytes = 0;
-        switch (_type) {
-        case SBF_BYTE:
-            bytes = sizeof(sbf_byte);
+const std::vector<sbf_size> get_shape_vector() const {
+    return std::vector<sbf_size>(_shape.data(), _shape.data() + _shape.size());
+}
+
+/*
+ * Size of the datatype, in bytes
+ *
+ * TODO fix implementation to not be so dirty
+ */
+const std::size_t datatype_size() const {
+    sbf_size bytes = 0;
+    switch (_type) {
+    case SBF_BYTE:
+        bytes = sizeof(sbf_byte);
+        break;
+    case SBF_DOUBLE:
+        bytes = sizeof(sbf_double);
+        break;
+    case SBF_INT:
+        bytes = sizeof(sbf_integer);
+        break;
+    case SBF_LONG:
+        bytes = sizeof(sbf_long);
+        break;
+    case SBF_FLOAT:
+        bytes = sizeof(sbf_float);
+        break;
+    case SBF_CFLOAT:
+        bytes = sizeof(sbf_complex_float);
+        break;
+    case SBF_CDOUBLE:
+        bytes = sizeof(sbf_complex_double);
+        break;
+    case SBF_CHAR:
+        bytes = sizeof(sbf_character);
+        break;
+    }
+    return bytes;
+}
+
+/* Total number of bytes occupied by the binary blob of this dataset,
+ * i.e. num_blocks * block_size
+ */
+const std::size_t size() const {
+    std::size_t product = datatype_size();
+    for (const auto dim : _shape) {
+        if (dim == 0)
             break;
-        case SBF_DOUBLE:
-            bytes = sizeof(sbf_double);
-            break;
-        case SBF_INT:
-            bytes = sizeof(sbf_integer);
-            break;
-        case SBF_LONG:
-            bytes = sizeof(sbf_long);
-            break;
-        case SBF_FLOAT:
-            bytes = sizeof(sbf_float);
-            break;
-        case SBF_CFLOAT:
-            bytes = sizeof(sbf_complex_float);
-            break;
-        case SBF_CDOUBLE:
-            bytes = sizeof(sbf_complex_double);
-            break;
-        case SBF_CHAR:
-            bytes = sizeof(sbf_character);
-            break;
-        }
-        return bytes;
+        product *= dim;
     }
+    return product;
+}
 
-    /* Total number of bytes occupied by the binary blob of this dataset,
-     * i.e. num_blocks * block_size
-     */
-    const std::size_t size() const {
-        std::size_t product = datatype_size();
-        for (const auto dim : _shape) {
-            if (dim == 0)
-                break;
-            product *= dim;
-        }
-        return product;
-    }
+friend std::ostream &operator<<(std::ostream &os, const Dataset &dset);
+friend std::istream &operator>>(std::istream &is, Dataset &dset);
 
-    friend std::ostream &operator<<(std::ostream &os, const Dataset &dset);
-    friend std::istream &operator>>(std::istream &is, Dataset &dset);
-
-  private:
-    void * _data = nullptr;
-    sbf_string _name;
-    sbf_byte _flags = flags::default_flags;
-    DataType _type = SBF_BYTE;     // how big is each block of data
-    sbf_dimensions _shape = {{0}}; // how many blocks of data do we have
 };
 
 /*
@@ -341,11 +356,6 @@ class File {
             m_status = FailedReadingHeaders;
             return;
         }
-        status = read_datablocks();
-        if (status != sbf::success) {
-            m_status = FailedReadingDatablocks;
-            return;
-        }
         status = close();
         if (status == sbf::success) m_status = Closed;
         else m_status = FailedClosing;
@@ -392,20 +402,6 @@ class File {
         return res;
     }
 
-    ResultType write_datablocks() {
-        //avoid calling destructor
-        for (const auto& item: datasets) {
-            if(item.data() != nullptr) {
-                file_stream.write(
-                        reinterpret_cast<const char *>(item.data()),
-                        static_cast<std::streamsize>(item.size()));
-            }
-        }
-        return success;
-    }
-
-
-
     ResultType read_headers() {
         FileHeader file_header;
         file_stream >> file_header;
@@ -414,29 +410,53 @@ class File {
             return read_failure;
         }
 
+        size_t offset = sizeof(Dataset) * file_header.n_datasets + sizeof(FileHeader);
         for (auto i = 0; i < file_header.n_datasets; i++) {
             Dataset dset;
             file_stream >> dset;
             if (file_stream.fail()) {
                 return read_failure;
             }
+            dset._offset = offset;
             m_dataset_names[dset.name()] = static_cast<int>(datasets.size());
             datasets.push_back(dset);
+            offset += dset.size();
         }
         return success;
     }
 
-    ResultType read_datablocks() {
-        for (Dataset& dset: datasets) {
-            char * data = new char[dset.size()];
-            file_stream.read(data, static_cast<std::streamsize>(dset.size()));
-            dset._data = reinterpret_cast<void *>(data);
-        }
-        return success;
+    // read a dataset
+    template<typename T, class Traits = SBFTypeTraits<T>>
+    ResultType read_data(const std::string& dset_name, T *data) {
+        auto dset = get_dataset(dset_name);
+        bool valid = (Traits::type == dset.get_type());
+        if(!valid) return ResultType::read_failure;
+        file_stream.seekg(dset._offset);
+        file_stream.read(reinterpret_cast<char*>(data),
+                         static_cast<std::streamsize>(dset.size()));
+        return ResultType::success; 
     }
+
+    // read a dataset
+    template<typename T, class Traits = SBFTypeTraits<T>>
+    ResultType write_data(const std::string& dset_name, T *data) {
+        auto dset = get_dataset(dset_name);
+        bool valid = (Traits::type == dset.get_type());
+        if(!valid) return ResultType::write_failure;
+        if(data != nullptr) {
+            file_stream.seekg(dset._offset);
+            file_stream.write(
+                    reinterpret_cast<const char *>(data),
+                    static_cast<std::streamsize>(dset.size()));
+        }
+        return ResultType::success; 
+    }
+
 
 
     ResultType add_dataset(const Dataset& dset) {
+        size_t offset = sizeof(FileHeader) + datasets.size()*sizeof(Dataset);
+        for(const auto& x: datasets) offset += x.size(); 
         m_dataset_names[dset.name()] = static_cast<int>(datasets.size());
         datasets.push_back(dset);
         return success;
