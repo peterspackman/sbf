@@ -61,7 +61,7 @@ std::string as_string(sbf_string sbf_str) {
 }
 
 sbf_string as_sbf_string(std::string str) {
-    sbf_string sbf_str;
+    sbf_string sbf_str {{0}};
     std::copy_n(begin(str), std::min(sbf_str.size(), str.size()),
                 begin(sbf_str));
     return sbf_str;
@@ -107,6 +107,7 @@ struct FileHeader {
 
     std::array<sbf_character, 6> token_version_string;
     sbf_byte n_datasets;
+    static constexpr size_t header_size = sizeof(token_version_string) + sizeof(n_datasets);
 };
 
 /*
@@ -167,18 +168,18 @@ struct SBFTypeTraits<sbf_double> {
  */
 class Dataset {
 friend class File;
-constexpr static size_t header_size = 62*sizeof(sbf_character) 
-    + 8*sizeof(sbf_size) + sizeof(sbf_byte);
 
 private:
-void * _data = nullptr;
 size_t _offset = 0;
-sbf_string _name;
+sbf_string _name = {{0}};
 sbf_byte _flags = flags::default_flags;
 DataType _type = SBF_BYTE;     // how big is each block of data
 sbf_dimensions _shape = {{0}}; // how many blocks of data do we have
 
 public:
+constexpr static size_t header_size = sizeof(_name) +
+    sizeof(_flags) + sizeof(_type) + sizeof(_shape);
+
 Dataset() {}
 
 Dataset(const std::string &name_string)
@@ -195,6 +196,7 @@ Dataset(const std::string &name_string, const sbf_dimensions &shape,
 }
 
 const std::string name() const {
+    std::cout << "Raw name: " << reinterpret_cast<const char*>(&_name) << std::endl;
     return as_string(_name);
 }
 
@@ -298,17 +300,14 @@ friend std::istream &operator>>(std::istream &is, Dataset &dset);
 /*
  * Serialize this Dataset into a datastream
  */
-std::ostream &operator<<(std::ostream &os, const Dataset &f) {
+std::ostream &operator<<(std::ostream &os, const Dataset &dset) {
     // Fields are done separately in order to avoid potential struct padding
     // issues
-    auto raw_name = f.raw_name();
-    auto flags = f.get_flags();
-    auto type = f.get_type();
-    auto shape = f.get_shape();
-    os.write(reinterpret_cast<const char *>(&(raw_name)), sizeof(raw_name));
-    os.write(reinterpret_cast<const char *>(&(flags)), sizeof(flags));
-    os.write(reinterpret_cast<const char *>(&(type)), sizeof(type));
-    os.write(reinterpret_cast<const char *>(&(shape)), sizeof(shape));
+    std::cout << "Dataset name (writing): " << dset.name() << std::endl;
+    os.write(reinterpret_cast<const char *>(&(dset._name)), sizeof(dset._name));
+    os.write(reinterpret_cast<const char *>(&(dset._flags)), sizeof(dset._flags));
+    os.write(reinterpret_cast<const char *>(&(dset._type)), sizeof(dset._type));
+    os.write(reinterpret_cast<const char *>(&(dset._shape)), sizeof(dset._shape));
     return os;
 }
 
@@ -316,6 +315,7 @@ std::ostream &operator<<(std::ostream &os, const Dataset &f) {
  * Deserialize from a data stream into this Dataset
  */
 std::istream &operator>>(std::istream &is, Dataset &dset) {
+    std::cout << "Dataset name (reading): " << dset.name() << std::endl;
     is.read(reinterpret_cast<char *>(&(dset._name)), sizeof(dset._name));
     is.read(reinterpret_cast<char *>(&(dset._flags)), sizeof(dset._flags));
     is.read(reinterpret_cast<char *>(&(dset._type)), sizeof(dset._type));
@@ -357,9 +357,6 @@ class File {
             m_status = FailedReadingHeaders;
             return;
         }
-        status = close();
-        if (status == sbf::success) m_status = Closed;
-        else m_status = FailedClosing;
     }
 
     ResultType open() {
@@ -399,6 +396,7 @@ class File {
                 }
             }
         }
+        std::cout << "write_headers wrote " << file_stream.tellg() << " B" << std::endl;
         std::cerr << "Error " << strerror(errno) << std::endl;
         return res;
     }
@@ -411,7 +409,7 @@ class File {
             return read_failure;
         }
 
-        size_t offset = Dataset::header_size * file_header.n_datasets + sizeof(FileHeader);
+        size_t offset = Dataset::header_size * file_header.n_datasets + FileHeader::header_size;
         std::cout << "Offset of headers: " << offset << std::endl;
         for (auto i = 0; i < file_header.n_datasets; i++) {
             Dataset dset;
@@ -433,7 +431,10 @@ class File {
         auto dset = get_dataset(dset_name);
         bool valid = (Traits::type == dset.get_type());
         if(!valid) return ResultType::read_failure;
+        if(!is_open()) return ResultType::read_failure;
+        std::cout << "Stream pos: " << file_stream.tellg() << std::endl;
         file_stream.seekg(dset._offset);
+        std::cout << "Stream pos: " << file_stream.tellg() << std::endl;
         file_stream.read(reinterpret_cast<char*>(data),
                          static_cast<std::streamsize>(dset.size()));
         return ResultType::success; 
@@ -458,7 +459,8 @@ class File {
 
 
     ResultType add_dataset(Dataset& dset) {
-        size_t offset = sizeof(FileHeader) + datasets.size()*Dataset::header_size;
+        // add +1 for this dataset
+        size_t offset = FileHeader::header_size + (datasets.size() + 1) * Dataset::header_size;
         for(const auto& x: datasets) offset += x.size(); 
         m_dataset_names[dset.name()] = static_cast<int>(datasets.size());
         dset._offset = offset;

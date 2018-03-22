@@ -26,6 +26,7 @@ TEST_CASE("Write to file", "[io, headers]") {
     REQUIRE(file.open() == sbf::success);
     sbf::sbf_dimensions shape{{0}};
     shape[0] = 1000;
+
     sbf::Dataset dset("integer_dataset", shape, sbf::SBF_INT);
     std::cout << "Created dataset" << std::endl;
     REQUIRE(file.add_dataset(dset) == sbf::success);
@@ -51,7 +52,6 @@ TEST_CASE("Read from file", "[io, headers]") {
     for (int i = 0; i < 1000; i++) {
         REQUIRE(ints[i] == i * i);
     }
-    // res = file.add_dataset<sbf_integer, 1000>("integer_dataset", ints);
     REQUIRE(file.close() == sbf::success);
     sbf::File file_fail("does not exist");
     REQUIRE(file_fail.status() == sbf::File::Status::FailedOpening);
