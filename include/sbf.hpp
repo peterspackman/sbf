@@ -107,7 +107,7 @@ struct FileHeader {
 
     std::array<sbf_character, 6> token_version_string;
     sbf_byte n_datasets;
-    static constexpr size_t header_size = sizeof(token_version_string) + sizeof(n_datasets);
+    constexpr static size_t header_size = sizeof(token_version_string) + sizeof(n_datasets);
 };
 
 /*
@@ -175,6 +175,7 @@ sbf_string _name = {{0}};
 sbf_byte _flags = flags::default_flags;
 DataType _type = SBF_BYTE;     // how big is each block of data
 sbf_dimensions _shape = {{0}}; // how many blocks of data do we have
+bool _written_to_file = false;
 
 public:
 constexpr static size_t header_size = sizeof(_name) +
@@ -313,6 +314,7 @@ std::ostream &operator<<(std::ostream &os, const Dataset &dset) {
  * Deserialize from a data stream into this Dataset
  */
 std::istream &operator>>(std::istream &is, Dataset &dset) {
+    dset._written_to_file = true;
     is.read(reinterpret_cast<char *>(&(dset._name)), sizeof(dset._name));
     is.read(reinterpret_cast<char *>(&(dset._flags)), sizeof(dset._flags));
     is.read(reinterpret_cast<char *>(&(dset._type)), sizeof(dset._type));
@@ -440,12 +442,14 @@ class File {
         bool valid = (Traits::type == dset.get_type());
         if(!valid) return ResultType::write_failure;
         if(data != nullptr) {
-            std::cout << "Offset: " << dset._offset;
             file_stream.seekg(dset._offset);
+            std::cout << "File@ " << file_stream.tellg() 
+                << " should be @ " << dset._offset << "\n";
             file_stream.write(
                     reinterpret_cast<const char *>(data),
                     static_cast<std::streamsize>(dset.size()));
         }
+        dset._written_to_file = true;
         return ResultType::success; 
     }
 
@@ -454,7 +458,11 @@ class File {
     ResultType add_dataset(Dataset& dset) {
         // add +1 for this dataset
         size_t offset = FileHeader::header_size + (datasets.size() + 1) * Dataset::header_size;
-        for(const auto& x: datasets) offset += x.size(); 
+        for(auto& x: datasets) {
+            x._offset = offset; 
+            offset += x.size(); 
+        }
+        std::cout << "Offset of '" << dset.name() <<  "' data = " << offset << "\n";
         m_dataset_names[dset.name()] = static_cast<int>(datasets.size());
         dset._offset = offset;
         datasets.push_back(dset);

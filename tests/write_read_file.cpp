@@ -27,30 +27,46 @@ TEST_CASE("Write to file", "[io, headers]") {
     sbf::sbf_dimensions shape{{0}};
     shape[0] = 1000;
 
-    sbf::Dataset dset("integer_dataset", shape, sbf::SBF_INT);
-    std::cout << "Created dataset" << std::endl;
-    REQUIRE(file.add_dataset(dset) == sbf::success);
-    std::cout << "Added dataset" << std::endl;
+    sbf::Dataset dset1("integer_dataset", shape, sbf::SBF_INT);
+    sbf::Dataset dset2("integer_dataset_negative", shape, sbf::SBF_INT);
+    std::cout << "Created datasets" << std::endl;
+
+    REQUIRE(file.add_dataset(dset2) == sbf::success);
+    std::cout << "Added dset2" << std::endl;
     REQUIRE(file.n_datasets() == 1);
     std::cout << "check n_dataset" << std::endl;
+
+    REQUIRE(file.add_dataset(dset1) == sbf::success);
+    std::cout << "Added dset1" << std::endl;
+    REQUIRE(file.n_datasets() == 2);
+    std::cout << "check n_dataset" << std::endl;
+
     REQUIRE(file.write_headers() == sbf::success);
     std::cout << "wrote_headers" << std::endl;
+
     REQUIRE(file.write_data("integer_dataset", ints) == sbf::success);
-    std::cout << "wrote data" << std::endl;
+    std::cout << "wrote data for dset1" << std::endl;
+
+    for (int i = 0; i < 1000; i++) {
+        ints[i] = -ints[i];
+    }
+    REQUIRE(file.write_data("integer_dataset_negative", ints) == sbf::success);
+    std::cout << "wrote data for dset2" << std::endl;
+
     REQUIRE(file.close() == sbf::success);
     std::cout << "Wrote dataset" << std::endl;
 }
 
 TEST_CASE("Read from file", "[io, headers]") {
     sbf::File file(test_filename);
-    REQUIRE(file.n_datasets() == 1);
-    auto dset = file.get_dataset("integer_dataset");
+    REQUIRE(file.n_datasets() == 2);
+    auto dset = file.get_dataset("integer_dataset_negative");
     std::cout << "Read dataset: " << dset.name() << std::endl;
     sbf::sbf_integer ints[1000];
-    REQUIRE(file.read_data<sbf::sbf_integer>("integer_dataset", ints));
+    REQUIRE(file.read_data<sbf::sbf_integer>("integer_dataset_negative", ints));
     REQUIRE(ints != nullptr);
     for (int i = 0; i < 1000; i++) {
-        REQUIRE(ints[i] == i * i);
+        REQUIRE(ints[i] == - i * i);
     }
     REQUIRE(file.close() == sbf::success);
     sbf::File file_fail("does not exist");
