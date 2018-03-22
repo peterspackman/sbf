@@ -196,7 +196,6 @@ Dataset(const std::string &name_string, const sbf_dimensions &shape,
 }
 
 const std::string name() const {
-    std::cout << "Raw name: " << reinterpret_cast<const char*>(&_name) << std::endl;
     return as_string(_name);
 }
 
@@ -303,7 +302,6 @@ friend std::istream &operator>>(std::istream &is, Dataset &dset);
 std::ostream &operator<<(std::ostream &os, const Dataset &dset) {
     // Fields are done separately in order to avoid potential struct padding
     // issues
-    std::cout << "Dataset name (writing): " << dset.name() << std::endl;
     os.write(reinterpret_cast<const char *>(&(dset._name)), sizeof(dset._name));
     os.write(reinterpret_cast<const char *>(&(dset._flags)), sizeof(dset._flags));
     os.write(reinterpret_cast<const char *>(&(dset._type)), sizeof(dset._type));
@@ -315,7 +313,6 @@ std::ostream &operator<<(std::ostream &os, const Dataset &dset) {
  * Deserialize from a data stream into this Dataset
  */
 std::istream &operator>>(std::istream &is, Dataset &dset) {
-    std::cout << "Dataset name (reading): " << dset.name() << std::endl;
     is.read(reinterpret_cast<char *>(&(dset._name)), sizeof(dset._name));
     is.read(reinterpret_cast<char *>(&(dset._flags)), sizeof(dset._flags));
     is.read(reinterpret_cast<char *>(&(dset._type)), sizeof(dset._type));
@@ -396,7 +393,6 @@ class File {
                 }
             }
         }
-        std::cout << "write_headers wrote " << file_stream.tellg() << " B" << std::endl;
         std::cerr << "Error " << strerror(errno) << std::endl;
         return res;
     }
@@ -410,7 +406,6 @@ class File {
         }
 
         size_t offset = Dataset::header_size * file_header.n_datasets + FileHeader::header_size;
-        std::cout << "Offset of headers: " << offset << std::endl;
         for (auto i = 0; i < file_header.n_datasets; i++) {
             Dataset dset;
             file_stream >> dset;
@@ -432,9 +427,7 @@ class File {
         bool valid = (Traits::type == dset.get_type());
         if(!valid) return ResultType::read_failure;
         if(!is_open()) return ResultType::read_failure;
-        std::cout << "Stream pos: " << file_stream.tellg() << std::endl;
         file_stream.seekg(dset._offset);
-        std::cout << "Stream pos: " << file_stream.tellg() << std::endl;
         file_stream.read(reinterpret_cast<char*>(data),
                          static_cast<std::streamsize>(dset.size()));
         return ResultType::success; 
