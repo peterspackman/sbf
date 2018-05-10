@@ -258,6 +258,22 @@ end interface
 
 contains
 
+
+function get_unused_unit(unit_max) result(res)
+    ! get an unused file unit number
+    integer :: res, unit_max, lu, u, iostat
+    logical :: is_open
+
+    u = unit_max; if(u < 1) u = 97
+    do lu = u, 1, -1
+        inquire(unit=lu, opened=is_open, iostat=iostat)
+        if(iostat .ne. 0) cycle
+        if(.not. is_open) exit
+    end do
+
+    res = lu
+end function
+
 function new_sbf_File_from_string(name) result(res)
    character(len=*) :: name
    type(sbf_File) :: res
@@ -451,6 +467,7 @@ subroutine open_sbf_file(this, mode)
 
     ! default: read only
     character(len=10) :: action = "read"
+    character(len=3) :: status = "new"
     if(present(mode)) then
         select case (mode)
             case (sbf_writeonly)
@@ -464,15 +481,12 @@ subroutine open_sbf_file(this, mode)
 
     ! check if the file exists
     inquire(file=this%filename, exist=file_exists)
-    if (.not. file_exists) then
-        open(newunit=this%filehandle, file=this%filename, &
-             status="new", access="stream", &
-             action=action, form="unformatted")
-    else
-        open(newunit=this%filehandle, file=this%filename, &
-             status="old", access="stream", &
-             action=action, form="unformatted")
-    end if
+    if (file_exists) status = "old"
+
+    this%filehandle = get_unused_unit(100)
+    open(unit=this%filehandle, file=this%filename, &
+         status=status, access="stream", &
+         action=action, form="unformatted")
 end subroutine
  
 subroutine close_sbf_file(this)
