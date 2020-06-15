@@ -25,7 +25,7 @@
 #define SBF_VERSION "0.2.0"
 
 #define SBF_MAX_DIM 8
-#define SBF_MAX_DATASETS 16
+#define SBF_MAX_DATASETS 64
 #define SBF_NAME_LENGTH 62
 // Flag bits
 #define SBF_BIG_ENDIAN 0b10000000

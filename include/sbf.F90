@@ -4,7 +4,7 @@
 
 #define SBF_MAX_DIM 8
 #ifndef SBF_MAX_DATASETS
-#define SBF_MAX_DATASETS 16
+#define SBF_MAX_DATASETS 64
 #endif
 #define SBF_NAME_LENGTH 62
 ! Flag bits

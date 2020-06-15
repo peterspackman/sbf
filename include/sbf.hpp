@@ -37,7 +37,7 @@ constexpr sbf_byte sbf_version_minor_minor('0');
 namespace limits {
 constexpr sbf_size max_dataset_dimensions(8);
 constexpr sbf_size name_length(62);
-constexpr sbf_size n_datasets_max(16);
+constexpr sbf_size n_datasets_max(64);
 }
 
 namespace flags {
