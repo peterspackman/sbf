@@ -8,11 +8,11 @@
 #endif
 #define SBF_NAME_LENGTH 62
 ! Flag bits
-#define SBF_BIG_ENDIAN B'10000000'
-#define SBF_COLUMN_MAJOR B'01000000'
-#define SBF_CUSTOM_DATATYPE B'00100000'
-#define SBF_UNUSED_BIT B'00010000'
-#define SBF_DIMENSION_BITS B'00001111'
+#define SBF_BIG_ENDIAN int(B'10000000')
+#define SBF_COLUMN_MAJOR int(B'01000000')
+#define SBF_CUSTOM_DATATYPE int(B'00100000')
+#define SBF_UNUSED_BIT int(B'00010000')
+#define SBF_DIMENSION_BITS int(B'00001111')
 ! Types
 #define SBF_BYTE 0
 #define SBF_INT 1
@@ -376,14 +376,14 @@ end function
 subroutine sbf_dh_get_dims(this, res)
     type(sbf_DataHeader), intent(in) :: this
     integer(sbf_byte) :: res
-    integer(sbf_byte) :: dimension_bits = SBF_DIMENSION_BITS
+    integer(sbf_byte), parameter :: dimension_bits = SBF_DIMENSION_BITS
     res = iand(this%flags, dimension_bits)
 end subroutine
 
 subroutine sbf_dh_set_dims(this, dims)
     type(sbf_DataHeader), intent(inout) :: this
     integer(sbf_byte) :: dims
-    integer(sbf_byte) :: dimension_bits = SBF_DIMENSION_BITS
+    integer(sbf_byte), parameter :: dimension_bits = SBF_DIMENSION_BITS
     this%flags = ior(this%flags, iand(dims, dimension_bits))
 end subroutine
 
